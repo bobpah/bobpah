@@ -100,7 +100,7 @@ const ctx = {
   }
 };
 vm.createContext(ctx);
-const dir = path.join(__dirname, '..', 'apps-script');
+const dir = process.env.SRC_DIR || path.join(__dirname, '..', 'apps-script');
 fs.readdirSync(dir).filter((f) => f.endsWith('.gs')).forEach((f) => vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), ctx, { filename: f }));
 
 // ---------- helpers ----------

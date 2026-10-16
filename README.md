@@ -43,6 +43,8 @@ apps-script/        โค้ดที่ต้องคัดลอกไปว
   Dashboard.html    หน้าแดชบอร์ด
   appsscript.json   ไฟล์ตั้งค่าโปรเจกต์ (เขตเวลา Asia/Bangkok)
 richmenu/richmenu.png   รูป Rich Menu (2500x1686)
+dist/                   ไฟล์รวมพร้อมวาง (Code.gs, Dashboard.html, appsscript.json)
+scripts/build.sh        สร้าง dist/ จาก apps-script/
 tests/simulate.js       ทดสอบแบบจำลอง: node tests/simulate.js
 ```
 
@@ -56,12 +58,14 @@ tests/simulate.js       ทดสอบแบบจำลอง: node tests/simu
 1. ล็อกอินด้วย Gmail ของเพจ แล้วสร้าง Google Sheet ใหม่ ตั้งชื่อเช่น `EA Finance`
 2. ไปที่เมนู **Extensions (ส่วนขยาย) → Apps Script**
 3. ไปที่ ⚙️ **Project Settings** แล้วติ๊ก **Show "appsscript.json" manifest file in editor**
-4. สร้างไฟล์ทั้งหมดตามชื่อในโฟลเดอร์ `apps-script/` แล้วคัดลอกเนื้อหาไปวาง
-   - ไฟล์ `.gs` ให้กด ➕ → Script แล้วพิมพ์ชื่อโดยไม่ต้องใส่ `.gs`
-   - `Dashboard.html` ให้กด ➕ → HTML แล้วตั้งชื่อ `Dashboard`
-   - `appsscript.json` ให้วางทับของเดิม
-   - ลบไฟล์ `Code.gs` เดิมที่ระบบสร้างไว้ หรือวางทับก็ได้
+4. คัดลอกโค้ดจากโฟลเดอร์ **`dist/`** ไปวาง ซึ่งมีแค่ 3 ไฟล์:
+   - `dist/Code.gs`: เลือกทั้งหมดในไฟล์ `Code.gs` เดิมของ Apps Script แล้ววางทับ (เป็นไฟล์รวมโค้ดทั้งหมดแล้ว)
+   - `dist/Dashboard.html`: กด ➕ → HTML ตั้งชื่อ `Dashboard` แล้ววาง
+   - `dist/appsscript.json`: วางทับของเดิม (ใช้ตั้งเขตเวลาเป็นเวลาไทย)
+   - วิธีเปิดไฟล์บน GitHub ให้คัดลอกง่าย: เข้าไปที่ไฟล์ แล้วกดปุ่ม **Raw** หรือปุ่ม 📋 Copy
 5. กด 💾 Save
+
+> นักพัฒนา: โค้ดต้นฉบับแยกไฟล์อยู่ใน `apps-script/` แก้แล้วรัน `./scripts/build.sh` เพื่อสร้าง `dist/` ใหม่
 
 ### 2) ติดตั้งชีต
 1. กลับไปที่ Google Sheet แล้วรีเฟรชหน้า จะเห็นเมนู **EA Finance**

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #f4f6fa; --card: #ffffff; --text: #1a2233; --muted: #6b7689; --line: #e3e7ef;
+      --inc: #16a34a; --exp: #dc2626; --warn: #d97706; --accent: #2563eb;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #0e1726; --card: #172338; --text: #e8edf6; --muted: #93a0b8; --line: #263450;
+        --inc: #34d399; --exp: #f87171; --warn: #fbbf24; --accent: #60a5fa; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans Thai', sans-serif; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    h1 { font-size: 20px; margin: 0; }
+    .sub { color: var(--muted); font-size: 13px; }
+    .nav { display: flex; align-items: center; gap: 8px; }
+    .nav a { text-decoration: none; color: var(--accent); background: var(--card); border: 1px solid var(--line); padding: 6px 12px; border-radius: 999px; font-size: 14px; }
+    .nav strong { font-size: 16px; min-width: 80px; text-align: center; }
+    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+    .kpi .label { color: var(--muted); font-size: 13px; }
+    .kpi .val { font-size: 22px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+    .inc { color: var(--inc); } .exp { color: var(--exp); } .warn { color: var(--warn); }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .card h2 { font-size: 15px; margin: 0 0 10px; }
+    .chart { position: relative; height: 260px; }
+    .bar { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; margin: 4px 0 10px; }
+    .bar i { display: block; height: 100%; border-radius: 99px; }
+    .row { display: flex; justify-content: space-between; font-size: 14px; gap: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .pill { font-size: 11px; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+    .p-ok { background: rgba(22,163,74,.15); color: var(--inc); }
+    .p-wait { background: rgba(217,119,6,.15); color: var(--warn); }
+    .p-no { background: rgba(107,118,137,.15); color: var(--muted); }
+    .empty { color: var(--muted); font-size: 14px; padding: 20px 0; text-align: center; }
+    .tablewrap { overflow-x: auto; }
+    @media (max-width: 760px) {
+      .kpis { grid-template-columns: 1fr 1fr; }
+      .grid { grid-template-columns: 1fr; }
+      .kpi .val { font-size: 18px; }
+      .hide-sm { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1 id="title">แดชบอร์ด</h1>
+      <div class="sub" id="updated"></div>
+    </div>
+    <div class="nav">
+      <a id="prev" href="#">‹</a>
+      <strong id="month"></strong>
+      <a id="next" href="#">›</a>
+    </div>
+  </header>
+
+  <section class="kpis">
+    <div class="card kpi"><div class="label">รายรับ</div><div class="val inc" id="kInc"></div></div>
+    <div class="card kpi"><div class="label">รายจ่าย</div><div class="val exp" id="kExp"></div></div>
+    <div class="card kpi"><div class="label">กำไรสุทธิ</div><div class="val" id="kNet"></div></div>
+    <div class="card kpi"><div class="label">รออนุมัติ</div><div class="val warn" id="kPending"></div></div>
+  </section>
+
+  <section class="grid">
+    <div class="card"><h2>รายรับ–รายจ่ายรายวัน</h2><div class="chart"><canvas id="cDaily"></canvas></div></div>
+    <div class="card"><h2>รายจ่ายแยกหมวด</h2><div class="chart"><canvas id="cCat"></canvas></div></div>
+  </section>
+
+  <section class="grid">
+    <div class="card"><h2>แนวโน้ม 6 เดือน</h2><div class="chart"><canvas id="cTrend"></canvas></div></div>
+    <div class="card">
+      <h2>งบประมาณเดือนนี้</h2>
+      <div id="budgets"></div>
+      <h2 style="margin-top:16px">รายรับแยกหมวด</h2>
+      <div id="incCats"></div>
+      <h2 style="margin-top:16px">แยกตามกระเป๋า</h2>
+      <div id="wallets"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>รายการล่าสุด</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>ID</th><th class="hide-sm">วันที่</th><th>หมวด</th><th class="hide-sm">รายละเอียด</th><th class="hide-sm">ส่งโดย</th><th>สถานะ</th><th style="text-align:right">จำนวน</th></tr></thead>
+        <tbody id="recent"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+  var D = <?!= dataJson ?>;
+  var BASE = <?!= JSON.stringify(baseUrl) ?>;
+
+  function money(n) {
+    n = Number(n) || 0;
+    return (n < 0 ? '-' : '') + '฿' + Math.abs(n).toLocaleString('th-TH', { maximumFractionDigits: 2 });
+  }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+  function $(id) { return document.getElementById(id); }
+
+  $('title').textContent = '📊 ' + D.business;
+  $('updated').textContent = 'อัปเดต ' + D.updated + ' · นับเฉพาะรายการที่อนุมัติแล้ว';
+  $('month').textContent = D.monthLabel;
+  $('prev').href = BASE + '&m=' + D.prev;
+  $('next').href = BASE + '&m=' + D.next;
+  $('kInc').textContent = money(D.inc);
+  $('kExp').textContent = money(D.exp);
+  $('kNet').textContent = money(D.net);
+  $('kNet').className = 'val ' + (D.net >= 0 ? 'inc' : 'exp');
+  $('kPending').textContent = D.pending + ' รายการ';
+
+  var INC = css('--inc'), EXP = css('--exp'), MUTED = css('--muted'), LINE = css('--line');
+  Chart.defaults.color = MUTED;
+  Chart.defaults.borderColor = LINE;
+  Chart.defaults.font.family = "'IBM Plex Sans Thai', sans-serif";
+  var tip = { callbacks: { label: function (c) { return (c.dataset.label ? c.dataset.label + ': ' : '') + money(c.parsed.y != null ? c.parsed.y : c.parsed); } } };
+  var yTicks = { callback: function (v) { return v >= 1000 ? (v / 1000) + 'k' : v; } };
+
+  new Chart($('cDaily'), {
+    type: 'bar',
+    data: {
+      labels: D.daily.map(function (d) { return d.d; }),
+      datasets: [
+        { label: 'รับ', data: D.daily.map(function (d) { return d.inc; }), backgroundColor: INC, borderRadius: 3 },
+        { label: 'จ่าย', data: D.daily.map(function (d) { return d.exp; }), backgroundColor: EXP, borderRadius: 3 }
+      ]
+    },
+    options: { maintainAspectRatio: false, plugins: { tooltip: tip, legend: { position: 'bottom' } }, scales: { y: { ticks: yTicks }, x: { grid: { display: false } } } }
+  });
+
+  var PALETTE = ['#2563eb', '#f59e0b', '#8b5cf6', '#ef4444', '#10b981', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#64748b'];
+  if (D.expCats.length) {
+    new Chart($('cCat'), {
+      type: 'doughnut',
+      data: {
+        labels: D.expCats.map(function (c) { return c.name; }),
+        datasets: [{ data: D.expCats.map(function (c) { return c.value; }), backgroundColor: PALETTE, borderColor: css('--card'), borderWidth: 2 }]
+      },
+      options: {
+        maintainAspectRatio: false, cutout: '60%',
+        plugins: {
+          legend: { position: window.innerWidth < 760 ? 'bottom' : 'right', labels: { boxWidth: 12 } },
+          tooltip: { callbacks: { label: function (c) { var pct = D.exp ? Math.round(c.parsed / D.exp * 100) : 0; return c.label + ': ' + money(c.parsed) + ' (' + pct + '%)'; } } }
+        }
+      }
+    });
+  } else {
+    $('cCat').parentNode.innerHTML = '<div class="empty">ยังไม่มีรายจ่ายเดือนนี้</div>';
+  }
+
+  new Chart($('cTrend'), {
+    data: {
+      labels: D.trend.map(function (t) { return t.m; }),
+      datasets: [
+        { type: 'bar', label: 'รับ', data: D.trend.map(function (t) { return t.inc; }), backgroundColor: INC, borderRadius: 3 },
+        { type: 'bar', label: 'จ่าย', data: D.trend.map(function (t) { return t.exp; }), backgroundColor: EXP, borderRadius: 3 },
+        { type: 'line', label: 'สุทธิ', data: D.trend.map(function (t) { return t.net; }), borderColor: css('--accent'), backgroundColor: css('--accent'), tension: .3 }
+      ]
+    },
+    options: { maintainAspectRatio: false, plugins: { tooltip: tip, legend: { position: 'bottom' } }, scales: { y: { ticks: yTicks }, x: { grid: { display: false } } } }
+  });
+
+  function bars(el, items, render) {
+    $(el).innerHTML = items.length ? items.map(render).join('') : '<div class="empty">ไม่มีข้อมูล</div>';
+  }
+  bars('budgets', D.budgets, function (b) {
+    var pct = Math.round(b.spent / b.budget * 100);
+    var col = pct >= 100 ? EXP : pct >= 80 ? css('--warn') : INC;
+    return '<div class="row"><span>' + esc(b.name) + '</span><span>' + money(b.spent) + ' / ' + money(b.budget) + ' (' + pct + '%)</span></div>' +
+      '<div class="bar"><i style="width:' + Math.min(pct, 100) + '%;background:' + col + '"></i></div>';
+  });
+  if (!D.budgets.length) $('budgets').innerHTML = '<div class="empty">ยังไม่ได้ตั้งงบ — พิมพ์ "ตั้งงบ ค่าโฆษณา 20000" ในไลน์</div>';
+  bars('incCats', D.incCats, function (c) {
+    var pct = D.inc ? Math.round(c.value / D.inc * 100) : 0;
+    return '<div class="row"><span>' + esc(c.name) + '</span><span class="inc">' + money(c.value) + '</span></div>' +
+      '<div class="bar"><i style="width:' + pct + '%;background:' + INC + '"></i></div>';
+  });
+  bars('wallets', D.wallets, function (w) {
+    return '<div class="row" style="margin-bottom:6px"><span>' + esc(w.name) + '</span><span><span class="inc">+' + money(w.inc) + '</span> · <span class="exp">-' + money(w.exp) + '</span></span></div>';
+  });
+
+  var pill = { 'อนุมัติแล้ว': 'p-ok', 'รออนุมัติ': 'p-wait', 'ปฏิเสธ': 'p-no' };
+  $('recent').innerHTML = D.recent.length ? D.recent.map(function (t) {
+    var isIn = t.type === 'รายรับ';
+    return '<tr><td>' + esc(t.id) + '</td><td class="hide-sm">' + esc(t.date) + '</td><td>' + esc(t.category) + '</td>' +
+      '<td class="hide-sm">' + esc(String(t.note).slice(0, 60)) + '</td><td class="hide-sm">' + esc(t.by) + '</td>' +
+      '<td><span class="pill ' + (pill[t.status] || '') + '">' + esc(t.status) + '</span></td>' +
+      '<td class="num ' + (isIn ? 'inc' : 'exp') + '">' + (isIn ? '+' : '-') + money(t.amount) + '</td></tr>';
+  }).join('') : '<tr><td colspan="7" class="empty">ยังไม่มีรายการ</td></tr>';
+</script>
+</body>
+</html>
