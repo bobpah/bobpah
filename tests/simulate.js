@@ -83,7 +83,7 @@ const ctx = {
   })(),
   ScriptApp: { getService: () => ({ getUrl: () => '' }) },
   ContentService: { createTextOutput: (s) => s },
-  HtmlService: { createHtmlOutput: (s) => s },
+  HtmlService: { createHtmlOutput: (s) => ({ kind: 'html', content: String(s) }) },
   UrlFetchApp: {
     fetch: (url, opts) => {
       if (url.includes('/message/') && url.includes('/content')) {
@@ -120,7 +120,7 @@ let evN = 0;
 function post(events) {
   sent.length = 0;
   const r = ctx.doPost({ parameter: { key: ctx.getConfig().WEBHOOK_KEY }, postData: { contents: JSON.stringify({ events }) } });
-  assert.strictEqual(r, 'ok');
+  assert.deepStrictEqual(r, { kind: 'html', content: 'ok' });
   return sent.map((s) => s.body && s.body.messages).filter(Boolean).flat();
 }
 const text = (userId, t, type = 'group') => post([{ type: 'message', webhookEventId: 'e' + ++evN, replyToken: 'r', source: { type, groupId: G, userId }, message: { type: 'text', text: t } }]);
@@ -140,7 +140,12 @@ ctx.setConfig('OWN_ACCOUNT_KEYWORDS', 'บจก. อีเอ เทรด, xxx
 const code = ctx.getConfig().ADMIN_CODE;
 
 check('forbidden without key', () => {
-  assert.strictEqual(ctx.doPost({ parameter: {}, postData: { contents: '{}' } }), 'forbidden');
+  assert.deepStrictEqual(ctx.doPost({ parameter: {}, postData: { contents: '{}' } }), { kind: 'html', content: 'forbidden' });
+});
+
+check('webhook response uses HtmlService (avoids LINE 302 rejection)', () => {
+  const r = ctx.doPost({ parameter: { key: ctx.getConfig().WEBHOOK_KEY }, postData: { contents: JSON.stringify({ events: [] }) } });
+  assert.deepStrictEqual(r, { kind: 'html', content: 'ok' });
 });
 
 check('group id remembered + admin register', () => {

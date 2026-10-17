@@ -86,7 +86,9 @@ function rememberGroup_(src) {
 }
 
 function text_(s) {
-  return ContentService.createTextOutput(s);
+  // ContentService redirects web-app responses to script.googleusercontent.com (302),
+  // which LINE webhook verification rejects. HtmlService returns the response directly.
+  return HtmlService.createHtmlOutput(String(s));
 }
 
 function logError_(where, err, data) {
