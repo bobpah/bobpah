@@ -45,6 +45,7 @@ apps-script/        โค้ดที่ต้องคัดลอกไปว
 richmenu/richmenu.png   รูป Rich Menu (2500x1686)
 dist/                   ไฟล์รวมพร้อมวาง (Code.gs, Dashboard.html, appsscript.json)
 scripts/build.sh        สร้าง dist/ จาก apps-script/
+.clasp.json.example     ตัวอย่างตั้งค่า clasp สำหรับ push ไป Apps Script
 tests/simulate.js       ทดสอบแบบจำลอง: node tests/simulate.js
 ```
 
@@ -66,6 +67,34 @@ tests/simulate.js       ทดสอบแบบจำลอง: node tests/simu
 5. กด 💾 Save
 
 > นักพัฒนา: โค้ดต้นฉบับแยกไฟล์อยู่ใน `apps-script/` แก้แล้วรัน `./scripts/build.sh` เพื่อสร้าง `dist/` ใหม่
+
+### ทางเลือกสำหรับนักพัฒนา: ใช้ clasp ไม่ต้องคัดลอกโค้ด
+
+ใช้วิธีนี้หลังสร้าง Google Sheet และเปิด Apps Script แบบ bound กับชีตแล้ว:
+
+1. ติดตั้ง clasp และล็อกอินด้วยบัญชี Google เดียวกับเจ้าของชีต
+   ```bash
+   npm install -g @google/clasp
+   clasp login
+   ```
+2. ใน Apps Script ไปที่ **Project Settings** แล้วคัดลอก **Script ID**
+3. ที่โฟลเดอร์รากของ repo สร้างไฟล์ config จริงจากตัวอย่าง แล้วใส่ Script ID:
+   ```powershell
+   Copy-Item .clasp.json.example .clasp.json
+   notepad .clasp.json
+   ```
+   ค่า `rootDir: "dist"` หมายถึง clasp จะ push เฉพาะไฟล์รวมใน `dist/`
+4. Build, ทดสอบ และ push:
+   ```bash
+   ./scripts/build.sh
+   node tests/simulate.js
+   SRC_DIR=dist node tests/simulate.js
+   clasp push
+   ```
+   บน Windows ให้รัน `./scripts/build.sh` ใน Git Bash/WSL หรือใช้ `bash scripts/build.sh` ใน PowerShell
+5. ครั้งแรกยังต้องเข้า Apps Script เพื่อรัน `setup()` และอนุญาตสิทธิ์ จากนั้น deploy Web app ตามขั้นตอนที่ 5 ด้านล่าง
+
+ไฟล์ `.clasp.json` และ `.clasprc.json` ถูกใส่ไว้ใน `.gitignore` แล้ว ห้าม commit หรือส่งต่อ `.clasprc.json` เพราะเป็น credential ของ clasp การ push จะอัปเดต source ใน Apps Script แต่ไม่ deploy เวอร์ชันใหม่ให้อัตโนมัติ ต้องกด **Deploy → Manage deployments → New version → Deploy** เอง
 
 ### 2) ติดตั้งชีต
 1. กลับไปที่ Google Sheet แล้วรีเฟรชหน้า จะเห็นเมนู **EA Finance**
@@ -143,7 +172,7 @@ tests/simulate.js       ทดสอบแบบจำลอง: node tests/simu
 | `FX_USD` | อัตราแลก USD เป็นบาท (เพิ่ม `FX_EUR` ฯลฯ เองได้) |
 | `DAILY_SUMMARY` / `DAILY_SUMMARY_HOUR` | เปิดหรือปิดการสรุปรายวัน และเวลาที่ส่ง |
 | `DASHBOARD_KEY` | รหัสในลิงก์แดชบอร์ด ถ้าลิงก์หลุดให้เปลี่ยนค่านี้ |
-| `GEMINI_MODEL` | ค่าเริ่มต้นคือ `gemini-flash-latest` ถ้า Google เปลี่ยนชื่อรุ่น ให้แก้ตรงนี้ |
+| `GEMINI_MODEL` | ค่าเริ่มต้นคือ `gemini-flash-latest` ซึ่งเป็น alias ของ Flash รุ่นล่าสุด ถ้าต้องการ pin รุ่นให้ใช้ `gemini-3.8-flash` หรือ `gemini-3.5-flash-lite` |
 
 ## ข้อจำกัดของแพ็กเกจฟรีที่ควรรู้
 

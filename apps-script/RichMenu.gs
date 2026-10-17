@@ -31,11 +31,8 @@ function setupRichMenu() {
     return { bounds: { x: x, y: r * ch, width: cw[c], height: ch }, action: a };
   });
 
-  // ลบเมนูเก่าที่เคยสร้าง
+  // จำเมนูเก่าไว้ลบหลังเมนูใหม่พร้อมใช้งานแล้ว
   var old = getConfig().RICHMENU_ID;
-  if (old) {
-    try { lineFetch_('/v2/bot/richmenu/' + old, null, 'delete'); } catch (e) {}
-  }
 
   var created = lineFetch_('/v2/bot/richmenu', {
     size: { width: W, height: H },
@@ -56,6 +53,12 @@ function setupRichMenu() {
   if (up.getResponseCode() !== 200) throw new Error('อัปโหลดรูป Rich Menu ไม่สำเร็จ: ' + up.getContentText());
 
   lineFetch_('/v2/bot/user/all/richmenu/' + id, null, 'post');
+
+  // ตั้งเมนูใหม่ก่อน แล้วค่อยลบเมนูเก่า เพื่อไม่ให้แชทว่างถ้าการสร้าง/อัปโหลดล้มเหลว
+  // หลังตั้ง default ใหม่แล้ว เมนูเก่าจะไม่ใช่ default จึงลบได้ตามลำดับของ LINE API
+  if (old && old !== id) {
+    try { lineFetch_('/v2/bot/richmenu/' + old, null, 'delete'); } catch (e) {}
+  }
   setConfig('RICHMENU_ID', id);
   safeAlert_('สร้าง Rich Menu สำเร็จ ✅\nเปิดแชท 1:1 กับ LINE OA เพื่อดูเมนู (อาจต้องปิดแล้วเปิดแชทใหม่)');
 }

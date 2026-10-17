@@ -39,6 +39,10 @@ function doGet(e) {
 
 function handleEvent_(ev) {
   var src = ev.source || {};
+
+  // LINE ระบุว่า standby event เป็นของโมดูลอื่น ห้ามบอทตอบหรือแก้ข้อมูลซ้ำ
+  if (ev.mode === 'standby') return;
+
   rememberGroup_(src);
 
   if (ev.type === 'join') {

@@ -283,7 +283,7 @@ function configDefaults_() {
     ['LINE_CHANNEL_SECRET', '', 'LINE Developers > Basic settings > Channel secret (ระบบออก token ให้เองอัตโนมัติ)'],
     ['LINE_CHANNEL_ACCESS_TOKEN', '', '(ไม่บังคับ) ถ้าใส่ long-lived token จะใช้อันนี้แทน ID/Secret'],
     ['GEMINI_API_KEY', '', 'ฟรีจาก https://aistudio.google.com/apikey'],
-    ['GEMINI_MODEL', 'gemini-flash-latest', 'ถ้าใช้ไม่ได้ ลอง gemini-2.5-flash'],
+    ['GEMINI_MODEL', 'gemini-flash-latest', 'alias รุ่นล่าสุด; ถ้าต้องการ pin รุ่นใช้ gemini-3.8-flash หรือ gemini-3.5-flash-lite'],
     ['WEB_APP_URL', '', 'วาง URL ที่ได้จาก Deploy > Web app (ลงท้าย /exec)'],
     ['WEBHOOK_KEY', randomKey_(24), 'รหัสลับต่อท้าย webhook (?key=) — ห้ามเผยแพร่'],
     ['DASHBOARD_KEY', randomKey_(16), 'รหัสลับเปิดแดชบอร์ด เปลี่ยนได้ถ้าลิงก์หลุด'],
@@ -1384,11 +1384,8 @@ function setupRichMenu() {
     return { bounds: { x: x, y: r * ch, width: cw[c], height: ch }, action: a };
   });
 
-  // ลบเมนูเก่าที่เคยสร้าง
+  // จำเมนูเก่าไว้ลบหลังเมนูใหม่พร้อมใช้งานแล้ว
   var old = getConfig().RICHMENU_ID;
-  if (old) {
-    try { lineFetch_('/v2/bot/richmenu/' + old, null, 'delete'); } catch (e) {}
-  }
 
   var created = lineFetch_('/v2/bot/richmenu', {
     size: { width: W, height: H },
@@ -1409,6 +1406,12 @@ function setupRichMenu() {
   if (up.getResponseCode() !== 200) throw new Error('อัปโหลดรูป Rich Menu ไม่สำเร็จ: ' + up.getContentText());
 
   lineFetch_('/v2/bot/user/all/richmenu/' + id, null, 'post');
+
+  // ตั้งเมนูใหม่ก่อน แล้วค่อยลบเมนูเก่า เพื่อไม่ให้แชทว่างถ้าการสร้าง/อัปโหลดล้มเหลว
+  // หลังตั้ง default ใหม่แล้ว เมนูเก่าจะไม่ใช่ default จึงลบได้ตามลำดับของ LINE API
+  if (old && old !== id) {
+    try { lineFetch_('/v2/bot/richmenu/' + old, null, 'delete'); } catch (e) {}
+  }
   setConfig('RICHMENU_ID', id);
   safeAlert_('สร้าง Rich Menu สำเร็จ ✅\nเปิดแชท 1:1 กับ LINE OA เพื่อดูเมนู (อาจต้องปิดแล้วเปิดแชทใหม่)');
 }
@@ -1455,6 +1458,10 @@ function doGet(e) {
 
 function handleEvent_(ev) {
   var src = ev.source || {};
+
+  // LINE ระบุว่า standby event เป็นของโมดูลอื่น ห้ามบอทตอบหรือแก้ข้อมูลซ้ำ
+  if (ev.mode === 'standby') return;
+
   rememberGroup_(src);
 
   if (ev.type === 'join') {

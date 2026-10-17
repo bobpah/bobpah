@@ -26,7 +26,7 @@ function configDefaults_() {
     ['LINE_CHANNEL_SECRET', '', 'LINE Developers > Basic settings > Channel secret (ระบบออก token ให้เองอัตโนมัติ)'],
     ['LINE_CHANNEL_ACCESS_TOKEN', '', '(ไม่บังคับ) ถ้าใส่ long-lived token จะใช้อันนี้แทน ID/Secret'],
     ['GEMINI_API_KEY', '', 'ฟรีจาก https://aistudio.google.com/apikey'],
-    ['GEMINI_MODEL', 'gemini-flash-latest', 'ถ้าใช้ไม่ได้ ลอง gemini-2.5-flash'],
+    ['GEMINI_MODEL', 'gemini-flash-latest', 'alias รุ่นล่าสุด; ถ้าต้องการ pin รุ่นใช้ gemini-3.8-flash หรือ gemini-3.5-flash-lite'],
     ['WEB_APP_URL', '', 'วาง URL ที่ได้จาก Deploy > Web app (ลงท้าย /exec)'],
     ['WEBHOOK_KEY', randomKey_(24), 'รหัสลับต่อท้าย webhook (?key=) — ห้ามเผยแพร่'],
     ['DASHBOARD_KEY', randomKey_(16), 'รหัสลับเปิดแดชบอร์ด เปลี่ยนได้ถ้าลิงก์หลุด'],

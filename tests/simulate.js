@@ -78,7 +78,8 @@ const ctx = {
   CacheService: { getScriptCache: () => ({ get: (k) => cache[k] || null, put: (k, v) => { cache[k] = v; } }) },
   DriveApp: (() => {
     const folder = { getId: () => 'f1', getFoldersByName: () => ({ hasNext: () => false }), createFolder: () => folder, createFile: () => ({ getUrl: () => 'https://drive.google.com/file/x' }) };
-    return { createFolder: () => folder, getFolderById: () => folder, getFileById: () => ({ moveTo: () => {} }) };
+    const richMenuImage = { getBlob: () => ({ getBytes: () => [1, 2, 3] }) };
+    return { createFolder: () => folder, getFolderById: () => folder, getFileById: () => ({ moveTo: () => {} }), getFilesByName: () => ({ hasNext: () => true, next: () => richMenuImage }) };
   })(),
   ScriptApp: { getService: () => ({ getUrl: () => '' }) },
   ContentService: { createTextOutput: (s) => s },
@@ -96,10 +97,15 @@ const ctx = {
         const body = { candidates: [{ content: { parts: [{ text: JSON.stringify(geminiReply) }] } }] };
         return { getResponseCode: () => 200, getContentText: () => JSON.stringify(body) };
       }
+      if (url.endsWith('/v2/bot/richmenu')) {
+        sent.push({ url, body: opts.payload ? JSON.parse(opts.payload) : null });
+        return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ richMenuId: 'rm-new' }) };
+      }
       if (url.includes('/member/') || url.includes('/profile/')) {
         return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ displayName: url.includes('Uadmin') ? 'บอส' : 'น้องแอด' }) };
       }
-      sent.push({ url, body: opts.payload ? JSON.parse(opts.payload) : null });
+      const body = opts.payload ? (typeof opts.payload === 'string' ? JSON.parse(opts.payload) : opts.payload) : null;
+      sent.push({ url, body });
       return { getResponseCode: () => 200, getContentText: () => '{}' };
     }
   }
@@ -148,6 +154,13 @@ check('group id remembered + admin register', () => {
 check('normal group chat is ignored', () => {
   assert.strictEqual(text('Ustaff', 'วันนี้ยิงแอดกี่โมงครับ').length, 0);
   assert.strictEqual(text('Ustaff', 'รับ 2 คนนะ').length, 0);
+});
+
+check('standby events are ignored without side effects', () => {
+  const before = tx().length;
+  const m = post([{ type: 'message', mode: 'standby', webhookEventId: 'standby1', replyToken: 'r', source: { type: 'group', groupId: G, userId: 'Ustaff' }, message: { type: 'text', text: '-999 ค่าแอด' } }]);
+  assert.strictEqual(m.length, 0);
+  assert.strictEqual(tx().length, before);
 });
 
 check('slip (expense, facebook ads in USD) → pending card', () => {
@@ -274,6 +287,19 @@ check('token issued from channel id/secret and cached', () => {
   assert.strictEqual(ctx.lineToken_(), 'short-tok');
   assert.strictEqual(oauthCalls, 1);
   assert.strictEqual(text('Ustaff', 'สรุป').length, 1);
+});
+
+check('rich menu replaces old menu after new menu is live', () => {
+  sent.length = 0;
+  ctx.setConfig('LINE_CHANNEL_ACCESS_TOKEN', 'tok');
+  ctx.setConfig('RICHMENU_ID', 'rm-old');
+  ctx.setupRichMenu();
+  const urls = sent.map((s) => s.url);
+  const newDefault = urls.indexOf('https://api.line.me/v2/bot/user/all/richmenu/rm-new');
+  const oldDelete = urls.indexOf('https://api.line.me/v2/bot/richmenu/rm-old');
+  assert.ok(newDefault >= 0);
+  assert.ok(oldDelete > newDefault);
+  assert.strictEqual(ctx.getConfig().RICHMENU_ID, 'rm-new');
 });
 
 console.log(`\nผ่านทั้งหมด ${pass} ชุดทดสอบ ✅`);
