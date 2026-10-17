@@ -79,7 +79,7 @@ tests/simulate.js       ทดสอบแบบจำลอง: node tests/simu
 ### 4) ตั้งค่า LINE
 1. เปิด https://developers.line.biz/console/ แล้วล็อกอิน → เลือก Provider → Channel ของ OA (ประเภท Messaging API)
    - ถ้ายังไม่มี ให้ไปที่ LINE OA Manager → ตั้งค่า → Messaging API → **เปิดใช้งาน**
-2. แท็บ **Messaging API** → **Channel access token (long-lived)** → กด Issue แล้วนำไปวางที่ `Config` ช่อง `LINE_CHANNEL_ACCESS_TOKEN`
+2. แท็บ **Basic settings** → คัดลอก **Channel ID** และ **Channel secret** ไปวางที่ `Config` ช่อง `LINE_CHANNEL_ID` และ `LINE_CHANNEL_SECRET` ระบบจะออก token ให้เองและต่ออายุอัตโนมัติ (หรือจะออก long-lived token แล้ววางที่ `LINE_CHANNEL_ACCESS_TOKEN` แทนก็ได้)
 3. ใน **LINE OA Manager**:
    - ไปที่ ตั้งค่าการตอบกลับ: เปิด **Webhook**, ปิด **ข้อความตอบกลับอัตโนมัติ**, ปิด **ข้อความทักทาย** (ถ้าไม่ต้องการ)
    - ไปที่ ตั้งค่าบัญชี: เปิด **อนุญาตให้บัญชีเข้าร่วมแชทกลุ่ม**

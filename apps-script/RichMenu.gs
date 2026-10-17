@@ -49,7 +49,7 @@ function setupRichMenu() {
   var up = UrlFetchApp.fetch('https://api-data.line.me/v2/bot/richmenu/' + id + '/content', {
     method: 'post',
     contentType: 'image/png',
-    headers: { Authorization: 'Bearer ' + getConfig().LINE_CHANNEL_ACCESS_TOKEN },
+    headers: { Authorization: 'Bearer ' + lineToken_() },
     payload: image.getBytes(),
     muteHttpExceptions: true
   });

@@ -22,7 +22,9 @@ function defaultCategories_() {
 
 function configDefaults_() {
   return [
-    ['LINE_CHANNEL_ACCESS_TOKEN', '', 'จาก LINE Developers > Messaging API > Channel access token (long-lived)'],
+    ['LINE_CHANNEL_ID', '', 'LINE Developers > Basic settings > Channel ID'],
+    ['LINE_CHANNEL_SECRET', '', 'LINE Developers > Basic settings > Channel secret (ระบบออก token ให้เองอัตโนมัติ)'],
+    ['LINE_CHANNEL_ACCESS_TOKEN', '', '(ไม่บังคับ) ถ้าใส่ long-lived token จะใช้อันนี้แทน ID/Secret'],
     ['GEMINI_API_KEY', '', 'ฟรีจาก https://aistudio.google.com/apikey'],
     ['GEMINI_MODEL', 'gemini-flash-latest', 'ถ้าใช้ไม่ได้ ลอง gemini-2.5-flash'],
     ['WEB_APP_URL', '', 'วาง URL ที่ได้จาก Deploy > Web app (ลงท้าย /exec)'],
@@ -98,7 +100,7 @@ function setup() {
   var cfg = getConfig();
   safeAlert_('ติดตั้งเสร็จแล้ว ✅\n\n' +
     'ต่อไป:\n' +
-    '1) ใส่ LINE_CHANNEL_ACCESS_TOKEN และ GEMINI_API_KEY ในชีต Config\n' +
+    '1) ใส่ LINE_CHANNEL_ID, LINE_CHANNEL_SECRET และ GEMINI_API_KEY ในชีต Config\n' +
     '2) Deploy เป็น Web app แล้ววาง URL ลงช่อง WEB_APP_URL\n' +
     '3) เมนู EA Finance > แสดงลิงก์ Webhook แล้วไปวางใน LINE Developers\n\n' +
     'รหัสแอดมิน: ' + cfg.ADMIN_CODE + '\n(พิมพ์ "แอดมิน ' + cfg.ADMIN_CODE + '" ในไลน์)');

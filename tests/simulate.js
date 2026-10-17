@@ -60,6 +60,7 @@ function makeSpreadsheet() {
 const ss = makeSpreadsheet();
 const sent = [];
 let geminiReply = {};
+let oauthCalls = 0;
 const props = {};
 const cache = {};
 
@@ -72,7 +73,7 @@ const ctx = {
       .replace('MM', pad(d.getMonth() + 1)).replace('dd', pad(d.getDate())).replace('HH', pad(d.getHours())).replace('mm', pad(d.getMinutes())),
     base64Encode: (b) => Buffer.from(b).toString('base64')
   },
-  PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => props[k] || null, setProperty: (k, v) => { props[k] = v; } }) },
+  PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => props[k] || null, setProperty: (k, v) => { props[k] = v; }, setProperties: (o) => Object.assign(props, o) }) },
   LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
   CacheService: { getScriptCache: () => ({ get: (k) => cache[k] || null, put: (k, v) => { cache[k] = v; } }) },
   DriveApp: (() => {
@@ -86,6 +87,10 @@ const ctx = {
     fetch: (url, opts) => {
       if (url.includes('/message/') && url.includes('/content')) {
         return { getResponseCode: () => 200, getBlob: () => ({ getContentType: () => 'image/jpeg', getBytes: () => [1, 2, 3], setName() { return this; } }) };
+      }
+      if (url.includes('/oauth/accessToken')) {
+        oauthCalls++;
+        return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ access_token: 'short-tok', expires_in: 2592000 }) };
       }
       if (url.includes('generativelanguage')) {
         const body = { candidates: [{ content: { parts: [{ text: JSON.stringify(geminiReply) }] } }] };
@@ -259,6 +264,16 @@ check('redelivered event ignored', () => {
   const ev = { type: 'message', webhookEventId: 'dup1', replyToken: 'r', source: { type: 'group', groupId: G, userId: 'Ustaff' }, message: { type: 'text', text: 'สรุป' } };
   assert.strictEqual(post([ev]).length, 1);
   assert.strictEqual(post([ev]).length, 0);
+});
+
+check('token issued from channel id/secret and cached', () => {
+  ctx.setConfig('LINE_CHANNEL_ACCESS_TOKEN', '');
+  ctx.setConfig('LINE_CHANNEL_ID', '1234567890');
+  ctx.setConfig('LINE_CHANNEL_SECRET', 'fake-secret');
+  assert.strictEqual(ctx.lineToken_(), 'short-tok');
+  assert.strictEqual(ctx.lineToken_(), 'short-tok');
+  assert.strictEqual(oauthCalls, 1);
+  assert.strictEqual(text('Ustaff', 'สรุป').length, 1);
 });
 
 console.log(`\nผ่านทั้งหมด ${pass} ชุดทดสอบ ✅`);

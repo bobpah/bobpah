@@ -279,7 +279,9 @@ function defaultCategories_() {
 
 function configDefaults_() {
   return [
-    ['LINE_CHANNEL_ACCESS_TOKEN', '', 'จาก LINE Developers > Messaging API > Channel access token (long-lived)'],
+    ['LINE_CHANNEL_ID', '', 'LINE Developers > Basic settings > Channel ID'],
+    ['LINE_CHANNEL_SECRET', '', 'LINE Developers > Basic settings > Channel secret (ระบบออก token ให้เองอัตโนมัติ)'],
+    ['LINE_CHANNEL_ACCESS_TOKEN', '', '(ไม่บังคับ) ถ้าใส่ long-lived token จะใช้อันนี้แทน ID/Secret'],
     ['GEMINI_API_KEY', '', 'ฟรีจาก https://aistudio.google.com/apikey'],
     ['GEMINI_MODEL', 'gemini-flash-latest', 'ถ้าใช้ไม่ได้ ลอง gemini-2.5-flash'],
     ['WEB_APP_URL', '', 'วาง URL ที่ได้จาก Deploy > Web app (ลงท้าย /exec)'],
@@ -355,7 +357,7 @@ function setup() {
   var cfg = getConfig();
   safeAlert_('ติดตั้งเสร็จแล้ว ✅\n\n' +
     'ต่อไป:\n' +
-    '1) ใส่ LINE_CHANNEL_ACCESS_TOKEN และ GEMINI_API_KEY ในชีต Config\n' +
+    '1) ใส่ LINE_CHANNEL_ID, LINE_CHANNEL_SECRET และ GEMINI_API_KEY ในชีต Config\n' +
     '2) Deploy เป็น Web app แล้ววาง URL ลงช่อง WEB_APP_URL\n' +
     '3) เมนู EA Finance > แสดงลิงก์ Webhook แล้วไปวางใน LINE Developers\n\n' +
     'รหัสแอดมิน: ' + cfg.ADMIN_CODE + '\n(พิมพ์ "แอดมิน ' + cfg.ADMIN_CODE + '" ในไลน์)');
@@ -417,9 +419,42 @@ function safeAlert_(msg) {
 // ===== Line.gs =====
 /** LINE Messaging API + Flex message */
 
+/**
+ * คืน channel access token
+ * - ถ้าใส่ LINE_CHANNEL_ACCESS_TOKEN (long-lived) ไว้ ใช้อันนั้น
+ * - ไม่งั้นออก token อายุ 30 วันเองจาก LINE_CHANNEL_ID + LINE_CHANNEL_SECRET แล้วต่ออายุอัตโนมัติ
+ */
+function lineToken_() {
+  var cfg = getConfig();
+  if (cfg.LINE_CHANNEL_ACCESS_TOKEN) return cfg.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!cfg.LINE_CHANNEL_ID || !cfg.LINE_CHANNEL_SECRET) {
+    throw new Error('ยังไม่ได้ใส่ LINE_CHANNEL_ID + LINE_CHANNEL_SECRET (หรือ LINE_CHANNEL_ACCESS_TOKEN) ในชีต Config');
+  }
+  var props = PropertiesService.getScriptProperties();
+  var cached = props.getProperty('LINE_TOKEN');
+  var exp = Number(props.getProperty('LINE_TOKEN_EXP') || 0);
+  var owner = props.getProperty('LINE_TOKEN_CH');
+  if (cached && owner === String(cfg.LINE_CHANNEL_ID) && exp > Date.now() + 86400000) return cached;
+
+  var res = UrlFetchApp.fetch('https://api.line.me/v2/oauth/accessToken', {
+    method: 'post',
+    payload: { grant_type: 'client_credentials', client_id: String(cfg.LINE_CHANNEL_ID), client_secret: String(cfg.LINE_CHANNEL_SECRET) },
+    muteHttpExceptions: true
+  });
+  if (res.getResponseCode() !== 200) {
+    throw new Error('ออก LINE token ไม่สำเร็จ (ตรวจ Channel ID / Secret): ' + res.getContentText().slice(0, 200));
+  }
+  var data = JSON.parse(res.getContentText());
+  props.setProperties({
+    LINE_TOKEN: data.access_token,
+    LINE_TOKEN_EXP: String(Date.now() + Number(data.expires_in || 2592000) * 1000),
+    LINE_TOKEN_CH: String(cfg.LINE_CHANNEL_ID)
+  });
+  return data.access_token;
+}
+
 function lineFetch_(path, payload, method, host) {
-  var token = getConfig().LINE_CHANNEL_ACCESS_TOKEN;
-  if (!token) throw new Error('ยังไม่ได้ใส่ LINE_CHANNEL_ACCESS_TOKEN ในชีต Config');
+  var token = lineToken_();
   var opts = {
     method: method || 'post',
     headers: { Authorization: 'Bearer ' + token },
@@ -452,7 +487,7 @@ function push(to, messages) {
 
 function getMessageContent(messageId) {
   var res = UrlFetchApp.fetch('https://api-data.line.me/v2/bot/message/' + messageId + '/content', {
-    headers: { Authorization: 'Bearer ' + getConfig().LINE_CHANNEL_ACCESS_TOKEN },
+    headers: { Authorization: 'Bearer ' + lineToken_() },
     muteHttpExceptions: true
   });
   if (res.getResponseCode() !== 200) throw new Error('ดึงรูปไม่สำเร็จ ' + res.getResponseCode());
@@ -1367,7 +1402,7 @@ function setupRichMenu() {
   var up = UrlFetchApp.fetch('https://api-data.line.me/v2/bot/richmenu/' + id + '/content', {
     method: 'post',
     contentType: 'image/png',
-    headers: { Authorization: 'Bearer ' + getConfig().LINE_CHANNEL_ACCESS_TOKEN },
+    headers: { Authorization: 'Bearer ' + lineToken_() },
     payload: image.getBytes(),
     muteHttpExceptions: true
   });
