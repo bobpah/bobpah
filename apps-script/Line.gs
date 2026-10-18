@@ -154,7 +154,7 @@ function txCard(tx, opts) {
     footer.push({
       type: 'box', layout: 'horizontal', spacing: 'sm', contents: [
         btn_('✅ อนุมัติ', 'a=ok&id=' + tx.id, 'primary', '#16a34a'),
-        btn_('❌ ปฏิเสธ', 'a=no&id=' + tx.id, 'secondary')
+        btn_('❌ ปฏิเสธ/ยกเลิก', 'a=no&id=' + tx.id, 'secondary')
       ]
     });
     footer.push({

@@ -243,6 +243,20 @@ check('manual entries', () => {
   assert.strictEqual(tx().slice(-1)[0].category, 'ค่าเน็ต/โทรศัพท์/สาธารณูปโภค');
 });
 
+check('sender can cancel own pending entry, not someone elses', () => {
+  text('Ustaff', '-111 ค่าแอด');
+  const own = tx().slice(-1)[0];
+  let m = postback('Ustaff', 'a=no&id=' + own.id);
+  assert.match(txt(m), /ยกเลิก/);
+  assert.strictEqual(ctx.findTx(own.id).status, 'ปฏิเสธ');
+
+  text('Ustaff', '-222 ค่าแอด');
+  const other = tx().slice(-1)[0];
+  m = postback('Uother', 'a=no&id=' + other.id);
+  assert.match(txt(m), /เฉพาะแอดมิน/);
+  assert.strictEqual(ctx.findTx(other.id).status, 'รออนุมัติ');
+});
+
 check('edit amount: owner ok, others blocked', () => {
   let m = text('Ustaff', 'แก้ T0004 950');
   assert.strictEqual(ctx.findTx('T0004').amount, 950);

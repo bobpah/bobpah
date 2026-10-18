@@ -573,7 +573,7 @@ function txCard(tx, opts) {
     footer.push({
       type: 'box', layout: 'horizontal', spacing: 'sm', contents: [
         btn_('✅ อนุมัติ', 'a=ok&id=' + tx.id, 'primary', '#16a34a'),
-        btn_('❌ ปฏิเสธ', 'a=no&id=' + tx.id, 'secondary')
+        btn_('❌ ปฏิเสธ/ยกเลิก', 'a=no&id=' + tx.id, 'secondary')
       ]
     });
     footer.push({
@@ -978,14 +978,17 @@ function approveCmd_(ev, id, ok) {
   var user = touchUser_(ev.source);
   var tx = findTx(id);
   if (!tx) return reply(ev.replyToken, [{ type: 'text', text: 'ไม่พบรายการ ' + id }]);
-  if (!canApprove_(user)) {
+  var isAdmin = canApprove_(user);
+  var canCancelOwn = !ok && tx.status === ST_PENDING && tx.byId === user.userId;
+  if (!isAdmin && !canCancelOwn) {
     return reply(ev.replyToken, [{ type: 'text', text: '🔒 เฉพาะแอดมินที่อนุมัติได้' + (hasAnyAdmin_() ? '' : '\n(ยังไม่มีแอดมิน: พิมพ์ "แอดมิน <รหัส>" รหัสอยู่ในชีต Config)') }]);
   }
   if (tx.status !== ST_PENDING) {
     return reply(ev.replyToken, [{ type: 'text', text: tx.id + ' ' + tx.status + 'ไปแล้ว' + (tx.approvedBy ? ' โดย ' + tx.approvedBy : '') }]);
   }
-  tx = updateTx(tx.id, { status: ok ? ST_APPROVED : ST_REJECTED, approvedBy: user.name, approvedAt: new Date() });
-  var line = (ok ? '✅ อนุมัติ ' : '❌ ปฏิเสธ ') + tx.id + '  ' + (tx.type === INCOME ? '+' : '-') + money(tx.amount, tx.currency) +
+  tx = updateTx(tx.id, { status: ok ? ST_APPROVED : ST_REJECTED, approvedBy: ok ? user.name : '', approvedAt: ok ? new Date() : '' });
+  var action = ok ? '✅ อนุมัติ ' : (canCancelOwn ? '🗑 ยกเลิก ' : '❌ ปฏิเสธ ');
+  var line = action + tx.id + '  ' + (tx.type === INCOME ? '+' : '-') + money(tx.amount, tx.currency) +
     '  ' + tx.category + '\nโดย ' + user.name;
   if (ok) {
     var w = budgetWarning_(tx);
@@ -1115,7 +1118,8 @@ function helpText_() {
     'ตั้งงบ ค่าโฆษณา 20000\n' +
     'export | export 2026-09\n' +
     'ตั้งกลุ่มนี้ (ห้องรับสรุปอัตโนมัติ)\n' +
-    'แอดมิน <รหัส> (ลงทะเบียนเป็นแอดมิน)';
+    'แอดมิน <รหัส> (ลงทะเบียนเป็นแอดมิน)\n' +
+    'ผู้ส่งยกเลิกรายการที่ตัวเองส่งได้ ขณะยังรออนุมัติ';
 }
 
 function categoriesText_() {
