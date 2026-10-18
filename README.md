@@ -92,9 +92,14 @@ tests/simulate.js       ทดสอบแบบจำลอง: node tests/simu
    clasp push
    ```
    บน Windows ให้รัน `./scripts/build.sh` ใน Git Bash/WSL หรือใช้ `bash scripts/build.sh` ใน PowerShell
-5. ครั้งแรกยังต้องเข้า Apps Script เพื่อรัน `setup()` และอนุญาตสิทธิ์ จากนั้น deploy Web app ตามขั้นตอนที่ 5 ด้านล่าง
+5. ถ้าต้องการอัปเดต Web app deployment เดิม ให้ดูรายการ deployment แล้ว redeploy ด้วยเวอร์ชันล่าสุด:
+   ```bash
+   clasp deployments
+   clasp deploy --deploymentId <DEPLOYMENT_ID> --description "อธิบายการเปลี่ยนแปลง"
+   ```
+6. ครั้งแรกยังต้องเข้า Apps Script เพื่อรัน `setup()` และอนุญาตสิทธิ์ จากนั้น deploy Web app ตามขั้นตอนที่ 5 ด้านล่าง
 
-ไฟล์ `.clasp.json` และ `.clasprc.json` ถูกใส่ไว้ใน `.gitignore` แล้ว ห้าม commit หรือส่งต่อ `.clasprc.json` เพราะเป็น credential ของ clasp การ push จะอัปเดต source ใน Apps Script แต่ไม่ deploy เวอร์ชันใหม่ให้อัตโนมัติ ต้องกด **Deploy → Manage deployments → New version → Deploy** เอง
+ไฟล์ `.clasp.json` และ `.clasprc.json` ถูกใส่ไว้ใน `.gitignore` แล้ว ห้าม commit หรือส่งต่อ `.clasprc.json` เพราะเป็น credential ของ clasp การ push จะอัปเดต source ใน Apps Script แต่ไม่ deploy เวอร์ชันใหม่ให้อัตโนมัติ ให้ใช้คำสั่ง `clasp deploy` ด้านบน หรือกด **Deploy → Manage deployments → New version → Deploy** เอง
 
 ### 2) ติดตั้งชีต
 1. กลับไปที่ Google Sheet แล้วรีเฟรชหน้า จะเห็นเมนู **EA Finance**
@@ -156,6 +161,7 @@ tests/simulate.js       ทดสอบแบบจำลอง: node tests/simu
 | `ดู T0001` | ดูรายการ |
 | `แก้ T0001 450` / `หมวด T0001 ค่าโฆษณา` / `โน้ต T0001 ...` / `กระเป๋า T0001 ...` | แก้ไข (ทำได้เฉพาะคนส่งระหว่างรออนุมัติ หรือแอดมิน) |
 | `อนุมัติ T0001` / `ปฏิเสธ T0001` / `อนุมัติทั้งหมด` | 👑 แอดมิน |
+| `ยกเลิก T0001` | คนส่งยกเลิกรายการของตัวเองได้ขณะรออนุมัติ; รายการของคนอื่นต้องเป็นแอดมิน |
 | `ตั้งงบ ค่าโฆษณา 20000` | 👑 ตั้งงบรายเดือน |
 | `export` / `export 2026-09` | 👑 ส่งออกข้อมูลรายเดือน |
 | `ตั้งกลุ่มนี้` | 👑 ตั้งห้องที่รับสรุปอัตโนมัติ |
