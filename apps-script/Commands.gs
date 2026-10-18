@@ -16,6 +16,12 @@ function handleText_(ev) {
   // ในกลุ่มใช้ได้เฉพาะ +/- (กันแชทปกติอย่าง "รับ 2 คน" ถูกบันทึกโดยไม่ตั้งใจ)
   if (m && !(inGroup && /^(รับ|จ่าย)$/.test(m[1]))) return manualEntry_(ev, m[1], m[2], m[3], m[4]);
 
+  // คนมักพิมพ์ภาษาธรรมชาติ เช่น "ค่าแอด 1,650 บาท" หรือ "ลูกค้าโอน 2,990 บาท"
+  // ในกลุ่มให้รับเฉพาะข้อความที่ขึ้นต้นด้วยคำบอกธุรกรรม เพื่อลดการจับแชททั่วไปเป็นรายการเงิน
+  if (inGroup && (m = naturalEntry_(t))) {
+    return manualEntry_(ev, m.sign, m.currency, m.amount, m.note);
+  }
+
   if (/^(help|วิธีใช้|ช่วยเหลือ|เมนู|คำสั่ง)$/i.test(lower)) return reply(rt, [{ type: 'text', text: helpText_() }]);
   if (/^(วิธีบันทึก|บันทึกเอง)$/.test(t)) return reply(rt, [{ type: 'text', text: manualHelpText_() }]);
   if (/^(สรุป|สรุปยอด)$/.test(t)) return reply(rt, [{ type: 'text', text: todayText_() + '\n\n' + monthText_() }]);
@@ -78,6 +84,22 @@ function handleText_(ev) {
 
   // ข้อความอื่นในกลุ่ม = แชทปกติของทีม → ไม่ตอบ
   if (!inGroup) reply(rt, [{ type: 'text', text: 'ส่งรูปสลิปมาได้เลย 📷 หรือพิมพ์ "วิธีใช้" เพื่อดูคำสั่ง' }]);
+}
+
+function naturalEntry_(text) {
+  var m = String(text || '').match(/^(.+?)\s+([\d,]+(?:\.\d+)?)\s*(บาท|thb|usd|\$)?$/i);
+  if (!m) return null;
+  var note = m[1].trim();
+  var head = note.toLowerCase();
+  var expense = /^(ค่า|จ่าย|ชำระ|ซื้อ|โอนจ่าย|รายจ่าย)/.test(head);
+  var income = /^(รับ|รายรับ|ลูกค้า|โอนเข้า|ได้เงิน|ขาย)/.test(head);
+  if (!expense && !income) return null;
+  return {
+    sign: income ? '+' : '-',
+    currency: /usd|\$/i.test(m[3] || '') ? 'USD' : '',
+    amount: m[2],
+    note: note
+  };
 }
 
 function num_(s) {
@@ -258,10 +280,12 @@ function manualHelpText_() {
   return '✍️ บันทึกเอง (พิมพ์ในแชท)\n\n' +
     '-500 ค่าแอด          → รายจ่าย 500\n' +
     '+1500 ขาย EA         → รายรับ 1,500\n' +
+    'ค่าแอด 1,650 บาท     → รายจ่าย 1,650\n' +
+    'ลูกค้าโอน 2,990 บาท  → รายรับ 2,990\n' +
     '-$50 facebook        → รายจ่าย 50 USD\n' +
     'จ่าย 300 ค่าเน็ต      → รายจ่าย (แชท 1:1)\n' +
     'รับ 2000 VIP          → รายรับ (แชท 1:1)\n\n' +
-    'ในกลุ่มให้ใช้ + / - นำหน้าตัวเลขเท่านั้น\n' +
+    'ในกลุ่มใช้ + / - หรือพิมพ์ ค่าแอด 1,650 บาท ได้\n' +
     'ระบุหมวด: ใส่ #ชื่อหมวด  เช่น  -900 #VPS\n' +
     'ระบุกระเป๋า: ใส่ @ชื่อ  เช่น  -200 ค่าแอด @บัตรเครดิต\n\n' +
     'ถ้าไม่ใส่หมวด ระบบจะเดาจากคำในข้อความ';

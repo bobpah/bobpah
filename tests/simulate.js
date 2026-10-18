@@ -171,7 +171,8 @@ check('standby events are ignored without side effects', () => {
 check('slip (expense, facebook ads in USD) → pending card', () => {
   geminiReply = { is_financial: true, doc_type: 'receipt', amount: 50, currency: 'USD', datetime: '2569-10-15 14:30', receiver_name: 'Meta Platforms', bank: 'Visa', ref: 'FB-123456', memo: 'Facebook ads', direction: 'expense', category: 'ค่าโฆษณา' };
   const m = image('Ustaff');
-  assert.strictEqual(m[0].type, 'flex');
+  assert.match(txt([m[0]]), /กำลังอ่านยอด/);
+  assert.ok(m.some((x) => x.type === 'flex'));
   const t = tx()[0];
   assert.strictEqual(t.type, 'รายจ่าย');
   assert.strictEqual(t.category, 'ค่าโฆษณา');
@@ -194,9 +195,12 @@ check('duplicate slip warned', () => {
   assert.match(JSON.stringify(m), /สลิปซ้ำกับ T0002/);
 });
 
-check('non-financial image ignored in group', () => {
+check('non-financial image acknowledged without transaction', () => {
+  const before = tx().length;
   geminiReply = { is_financial: false, amount: 0 };
-  assert.strictEqual(image('Ustaff').length, 0);
+  const m = image('Ustaff');
+  assert.match(txt(m), /กำลังอ่านยอด/);
+  assert.strictEqual(tx().length, before);
 });
 
 check('staff cannot approve, admin can; budget warning', () => {
@@ -305,6 +309,16 @@ check('rich menu replaces old menu after new menu is live', () => {
   assert.ok(newDefault >= 0);
   assert.ok(oldDelete > newDefault);
   assert.strictEqual(ctx.getConfig().RICHMENU_ID, 'rm-new');
+});
+
+check('natural Thai amount in group is recorded', () => {
+  const before = tx().length;
+  const m = text('Ustaff', 'ค่าเพล 1650 บาท');
+  assert.ok(m.length > 0);
+  const t = tx()[before];
+  assert.strictEqual(t.type, 'รายจ่าย');
+  assert.strictEqual(t.amount, 1650);
+  assert.strictEqual(t.note, 'ค่าเพล');
 });
 
 console.log(`\nผ่านทั้งหมด ${pass} ชุดทดสอบ ✅`);

@@ -108,6 +108,15 @@ function handleSlip_(ev) {
   var user = touchUser_(src);
   var blob = getMessageContent(ev.message.id);
 
+  // อ่านรูป + เรียก Gemini อาจใช้เวลาหลายวินาที ให้ตอบรับทันทีในกลุ่ม
+  // แล้วส่งการ์ดผลลัพธ์ด้วย push ภายหลัง เพื่อไม่ให้ผู้ใช้เห็นแค่ auto-reply ของ OA
+  if (inGroup) reply(ev.replyToken, [{ type: 'text', text: '⏳ รับรูปแล้ว กำลังอ่านยอดและตรวจว่าเป็นรายรับ/รายจ่ายให้ครับ…' }]);
+
+  var sendResult = function (messages) {
+    if (inGroup) return push(src.groupId, messages);
+    return reply(ev.replyToken, messages);
+  };
+
   if ((blob.getContentType() || '').indexOf('pdf') >= 0 && blob.getBytes().length > 15 * 1024 * 1024) {
     if (!inGroup) reply(ev.replyToken, [{ type: 'text', text: 'ไฟล์ใหญ่เกินไป' }]);
     return;
@@ -118,7 +127,7 @@ function handleSlip_(ev) {
     r = readSlip(blob);
   } catch (e) {
     logError_('gemini', e);
-    reply(ev.replyToken, [{ type: 'text', text: '⚠️ อ่านสลิปไม่สำเร็จ (' + String(e.message).slice(0, 120) + ')\nลองส่งใหม่ หรือพิมพ์บันทึกเอง เช่น  -500 ค่าแอด' }]);
+    sendResult([{ type: 'text', text: '⚠️ อ่านสลิปไม่สำเร็จ (' + String(e.message).slice(0, 120) + ')\nลองส่งใหม่ หรือพิมพ์บันทึกเอง เช่น  -500 ค่าแอด' }]);
     return;
   }
 
@@ -159,5 +168,5 @@ function handleSlip_(ev) {
 
   var dup = findDuplicate(tx);
   var warning = dup ? '⚠️ อาจเป็นสลิปซ้ำกับ ' + dup.id + ' (' + money(dup.amount) + ', ' + dup.status + ')' : '';
-  reply(ev.replyToken, [cardMsg(tx, { warning: warning })]);
+  sendResult([cardMsg(tx, { warning: warning })]);
 }
