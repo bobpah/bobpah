@@ -48,6 +48,15 @@ function handleText_(ev) {
     return reply(rt, [{ type: 'text', text: '👑 ' + u.name + ' เป็นแอดมินแล้ว อนุมัติรายการได้' }]);
   }
 
+  // ยกเลิกแบบไม่ต้องพิมพ์ ID: ใช้รายการรออนุมัติล่าสุดของผู้ส่งเอง
+  if (t === 'ยกเลิก') {
+    var ownPending = readAllTx().filter(function (tx) {
+      return tx.status === ST_PENDING && tx.byId === src.userId;
+    });
+    if (!ownPending.length) return reply(rt, [{ type: 'text', text: 'ไม่พบรายการรออนุมัติของคุณ' }]);
+    return approveCmd_(ev, ownPending[ownPending.length - 1].id, false);
+  }
+
   // ---- คำสั่งที่ต้องอ้าง ID
   if ((m = t.match(/^(อนุมัติ|approve)\s+(T\d+)$/i))) return approveCmd_(ev, m[2], true);
   if ((m = t.match(/^(ปฏิเสธ|reject|ยกเลิก)\s+(T\d+)$/i))) return approveCmd_(ev, m[2], false);

@@ -250,6 +250,12 @@ check('sender can cancel own pending entry, not someone elses', () => {
   assert.match(txt(m), /ยกเลิก/);
   assert.strictEqual(ctx.findTx(own.id).status, 'ปฏิเสธ');
 
+  text('Ustaff', '-112 ค่าแอด');
+  const ownByText = tx().slice(-1)[0];
+  m = text('Ustaff', 'ยกเลิก');
+  assert.match(txt(m), /ยกเลิก/);
+  assert.strictEqual(ctx.findTx(ownByText.id).status, 'ปฏิเสธ');
+
   text('Ustaff', '-222 ค่าแอด');
   const other = tx().slice(-1)[0];
   m = postback('Uother', 'a=no&id=' + other.id);
