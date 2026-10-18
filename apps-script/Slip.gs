@@ -1,33 +1,75 @@
 /** อ่านสลิป/ใบเสร็จด้วย Gemini (ฟรีจาก Google AI Studio) */
 
+var GEMINI_RETRY_CODES = [429, 500, 502, 503, 504];
+
+/** รายชื่อรุ่นที่จะลองตามลำดับ: GEMINI_MODEL แล้วต่อด้วย GEMINI_FALLBACK_MODELS */
+function geminiModels_() {
+  var cfg = getConfig();
+  var list = [cfg.GEMINI_MODEL || 'gemini-flash-latest'];
+  var fb = cfg.GEMINI_FALLBACK_MODELS === undefined ? 'gemini-flash-lite-latest' : String(cfg.GEMINI_FALLBACK_MODELS);
+  fb.split(',').map(function (m) { return m.trim(); }).filter(String).forEach(function (m) {
+    if (list.indexOf(m) < 0) list.push(m);
+  });
+  return list;
+}
+
+/**
+ * เรียก Gemini แล้วคืน JSON
+ * - error ชั่วคราว (503 คนใช้เยอะ, 429 โควตา, 5xx) → รอแล้วลองใหม่ จากนั้นสลับไปรุ่นสำรอง
+ * - 404 (ชื่อรุ่นใช้ไม่ได้) → ข้ามไปรุ่นสำรองทันที
+ */
 function geminiJson_(prompt, blob) {
   var cfg = getConfig();
   if (!cfg.GEMINI_API_KEY) throw new Error('ยังไม่ได้ใส่ GEMINI_API_KEY ในชีต Config');
-  var model = cfg.GEMINI_MODEL || 'gemini-flash-latest';
   var parts = [{ text: prompt }];
   if (blob) {
     parts.push({ inline_data: { mime_type: blob.getContentType() || 'image/jpeg', data: Utilities.base64Encode(blob.getBytes()) } });
   }
-  var res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
-    method: 'post',
-    contentType: 'application/json',
-    headers: { 'x-goog-api-key': cfg.GEMINI_API_KEY },
-    payload: JSON.stringify({
-      contents: [{ role: 'user', parts: parts }],
-      generationConfig: { temperature: 0, responseMimeType: 'application/json' }
-    }),
-    muteHttpExceptions: true
+  var payload = JSON.stringify({
+    contents: [{ role: 'user', parts: parts }],
+    generationConfig: { temperature: 0, responseMimeType: 'application/json' }
   });
-  if (res.getResponseCode() !== 200) {
-    throw new Error('Gemini ' + res.getResponseCode() + ': ' + res.getContentText().slice(0, 300));
+
+  var models = geminiModels_();
+  var lastErr = null;
+  for (var i = 0; i < models.length; i++) {
+    for (var attempt = 1; attempt <= 2; attempt++) {
+      var res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + models[i] + ':generateContent', {
+        method: 'post',
+        contentType: 'application/json',
+        headers: { 'x-goog-api-key': cfg.GEMINI_API_KEY },
+        payload: payload,
+        muteHttpExceptions: true
+      });
+      var code = res.getResponseCode();
+      if (code === 200) return parseGeminiJson_(res.getContentText());
+      lastErr = new Error('Gemini ' + code + ' (' + models[i] + '): ' + res.getContentText().slice(0, 200));
+      lastErr.code = code;
+      if (GEMINI_RETRY_CODES.indexOf(code) < 0) break;
+      if (attempt < 2) Utilities.sleep(2000 * attempt);
+    }
+    if (lastErr.code !== 404 && GEMINI_RETRY_CODES.indexOf(lastErr.code) < 0) break;
   }
-  var data = JSON.parse(res.getContentText());
+  throw lastErr;
+}
+
+function parseGeminiJson_(body) {
+  var data = JSON.parse(body);
   var cand = (data.candidates || [])[0];
   var text = cand && cand.content && cand.content.parts
     ? cand.content.parts.filter(function (p) { return p.text && !p.thought; }).map(function (p) { return p.text; }).join('')
     : '';
   text = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
   return JSON.parse(text);
+}
+
+/** ข้อความ error ที่คนทั่วไปอ่านเข้าใจ */
+function geminiErrorText_(e) {
+  var code = e && e.code;
+  if (code === 503 || code === 500 || code === 502 || code === 504) return 'ระบบ AI อ่านสลิป (Gemini) มีคนใช้เยอะชั่วคราว ลองแล้วยังไม่สำเร็จ';
+  if (code === 429) return 'ใช้โควตา Gemini ฟรีเต็มชั่วคราว (รอสักครู่แล้วลองใหม่)';
+  if (code === 400 || code === 403) return 'GEMINI_API_KEY ไม่ถูกต้องหรือไม่มีสิทธิ์ (เช็กในชีต Config)';
+  return 'อ่านสลิปไม่สำเร็จ (' + String(e && e.message || e).slice(0, 100) + ')';
 }
 
 function slipPrompt_() {
@@ -122,19 +164,69 @@ function handleSlip_(ev) {
     return;
   }
 
+  processSlip_(blob, user, sendResult, inGroup);
+}
+
+/** เก็บรูปที่อ่านไม่สำเร็จไว้ชั่วคราว เพื่อให้กด "ลองอ่านใหม่" ได้โดยไม่ต้องส่งรูปซ้ำ */
+function retryFolder_() {
+  var root = slipFolder_();
+  var it = root.getFoldersByName('_รออ่านใหม่');
+  return it.hasNext() ? it.next() : root.createFolder('_รออ่านใหม่');
+}
+
+/** ปุ่ม 🔄 ลองอ่านใหม่ (postback a=retry&f=<fileId>) */
+function handleRetrySlip_(ev, fileId) {
+  var src = ev.source;
+  var inGroup = src.type !== 'user';
+  var file = null;
+  try {
+    file = DriveApp.getFileById(fileId);
+    if (file.getParents().next().getId() !== retryFolder_().getId()) file = null;
+  } catch (e) {
+    file = null;
+  }
+  if (!file) return reply(ev.replyToken, [{ type: 'text', text: 'ไม่พบรูปเดิมแล้ว กรุณาส่งรูปสลิปใหม่อีกครั้ง' }]);
+  if (file.isTrashed()) return reply(ev.replyToken, [{ type: 'text', text: 'สลิปนี้อ่านเสร็จไปแล้ว ✅' }]);
+
+  var user = touchUser_(src);
+  if (inGroup) reply(ev.replyToken, [{ type: 'text', text: '🔄 กำลังลองอ่านสลิปใหม่…' }]);
+  var sendResult = function (messages) {
+    if (inGroup) return push(src.groupId, messages);
+    return reply(ev.replyToken, messages);
+  };
+  if (processSlip_(file.getBlob(), user, sendResult, inGroup)) file.setTrashed(true);
+}
+
+/** อ่านสลิปแล้วสร้างรายการ คืน true เมื่อเรียก AI สำเร็จ (false = ต้องลองใหม่) */
+function processSlip_(blob, user, sendResult, inGroup) {
   var r;
   try {
     r = readSlip(blob);
   } catch (e) {
     logError_('gemini', e);
-    sendResult([{ type: 'text', text: '⚠️ อ่านสลิปไม่สำเร็จ (' + String(e.message).slice(0, 120) + ')\nลองส่งใหม่ หรือพิมพ์บันทึกเอง เช่น  -500 ค่าแอด' }]);
-    return;
+    var retryId = '';
+    try {
+      retryId = retryFolder_().createFile(blob.copyBlob ? blob.copyBlob() : blob).getId();
+    } catch (e2) {
+      logError_('saveRetry', e2);
+    }
+    var msg = {
+      type: 'text',
+      text: '⚠️ ' + geminiErrorText_(e) + '\n' +
+        (retryId ? 'กดปุ่ม 🔄 ด้านล่างเพื่อลองอ่านใหม่ (ไม่ต้องส่งรูปซ้ำ)' : 'ลองส่งรูปใหม่อีกครั้ง') +
+        '\nหรือพิมพ์บันทึกเอง เช่น  -500 ค่าแอด'
+    };
+    if (retryId) {
+      msg.quickReply = { items: [{ type: 'action', action: { type: 'postback', label: '🔄 ลองอ่านใหม่', data: 'a=retry&f=' + retryId, displayText: '🔄 ลองอ่านสลิปใหม่' } }] };
+    }
+    sendResult([msg]);
+    return false;
   }
 
   // ในกลุ่ม: ถ้าไม่ใช่เอกสารการเงิน (รูปทั่วไป) ให้เงียบไว้ ไม่รบกวนแชท
   if (!r || !r.is_financial || !(Number(r.amount) > 0)) {
-    if (!inGroup) reply(ev.replyToken, [{ type: 'text', text: 'รูปนี้ไม่น่าจะเป็นสลิป/ใบเสร็จ 🤔\nถ้าใช่ ลองพิมพ์บันทึกเอง เช่น  -500 ค่าแอด' }]);
-    return;
+    if (!inGroup) sendResult([{ type: 'text', text: 'รูปนี้ไม่น่าจะเป็นสลิป/ใบเสร็จ 🤔\nถ้าใช่ ลองพิมพ์บันทึกเอง เช่น  -500 ค่าแอด' }]);
+    return true;
   }
 
   var type = decideType_(r);
@@ -169,4 +261,5 @@ function handleSlip_(ev) {
   var dup = findDuplicate(tx);
   var warning = dup ? '⚠️ อาจเป็นสลิปซ้ำกับ ' + dup.id + ' (' + money(dup.amount) + ', ' + dup.status + ')' : '';
   sendResult([cardMsg(tx, { warning: warning })]);
+  return true;
 }

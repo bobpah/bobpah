@@ -260,6 +260,7 @@ function handlePostback_(ev) {
   });
   var rt = ev.replyToken;
   switch (p.a) {
+    case 'retry': return handleRetrySlip_(ev, p.f);
     case 'ok': return approveCmd_(ev, p.id, true);
     case 'no': return approveCmd_(ev, p.id, false);
     case 'cat': {

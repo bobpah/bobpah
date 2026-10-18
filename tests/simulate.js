@@ -60,6 +60,10 @@ function makeSpreadsheet() {
 const ss = makeSpreadsheet();
 const sent = [];
 let geminiReply = {};
+const geminiStatus = []; // คิวสถานะ HTTP ที่ Gemini จะตอบ (ว่าง = 200)
+const geminiModelsCalled = [];
+const driveFiles = {};
+let driveSeq = 0;
 let oauthCalls = 0;
 const props = {};
 const cache = {};
@@ -71,15 +75,24 @@ const ctx = {
   Utilities: {
     formatDate: (d, tz, p) => p.replace('yyyy', d.getFullYear()).replace('yy', String(d.getFullYear()).slice(2))
       .replace('MM', pad(d.getMonth() + 1)).replace('dd', pad(d.getDate())).replace('HH', pad(d.getHours())).replace('mm', pad(d.getMinutes())),
-    base64Encode: (b) => Buffer.from(b).toString('base64')
+    base64Encode: (b) => Buffer.from(b).toString('base64'),
+    sleep: () => {}
   },
   PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => props[k] || null, setProperty: (k, v) => { props[k] = v; }, setProperties: (o) => Object.assign(props, o) }) },
   LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
   CacheService: { getScriptCache: () => ({ get: (k) => cache[k] || null, put: (k, v) => { cache[k] = v; } }) },
   DriveApp: (() => {
-    const folder = { getId: () => 'f1', getFoldersByName: () => ({ hasNext: () => false }), createFolder: () => folder, createFile: () => ({ getUrl: () => 'https://drive.google.com/file/x' }) };
+    const folder = {
+      getId: () => 'f1', getFoldersByName: () => ({ hasNext: () => false }), createFolder: () => folder,
+      createFile: (blob) => {
+        const id = 'file' + ++driveSeq;
+        let trashed = false;
+        driveFiles[id] = { getId: () => id, getUrl: () => 'https://drive.google.com/file/' + id, getBlob: () => blob, isTrashed: () => trashed, setTrashed: (v) => { trashed = v; }, getParents: () => ({ next: () => folder }), moveTo: () => {} };
+        return driveFiles[id];
+      }
+    };
     const richMenuImage = { getBlob: () => ({ getBytes: () => [1, 2, 3] }) };
-    return { createFolder: () => folder, getFolderById: () => folder, getFileById: () => ({ moveTo: () => {} }), getFilesByName: () => ({ hasNext: () => true, next: () => richMenuImage }) };
+    return { createFolder: () => folder, getFolderById: () => folder, getFileById: (id) => { if (driveFiles[id]) return driveFiles[id]; if (String(id).startsWith('file')) throw new Error('not found'); return { moveTo: () => {} }; }, getFilesByName: () => ({ hasNext: () => true, next: () => richMenuImage }) };
   })(),
   ScriptApp: { getService: () => ({ getUrl: () => '' }) },
   ContentService: { createTextOutput: (s) => s },
@@ -87,13 +100,16 @@ const ctx = {
   UrlFetchApp: {
     fetch: (url, opts) => {
       if (url.includes('/message/') && url.includes('/content')) {
-        return { getResponseCode: () => 200, getBlob: () => ({ getContentType: () => 'image/jpeg', getBytes: () => [1, 2, 3], setName() { return this; } }) };
+        return { getResponseCode: () => 200, getBlob: () => ({ getContentType: () => 'image/jpeg', getBytes: () => [1, 2, 3], setName() { return this; }, copyBlob() { return this; } }) };
       }
       if (url.includes('/oauth/accessToken')) {
         oauthCalls++;
         return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ access_token: 'short-tok', expires_in: 2592000 }) };
       }
       if (url.includes('generativelanguage')) {
+        geminiModelsCalled.push(url.split('/models/')[1].split(':')[0]);
+        const st = geminiStatus.length ? geminiStatus.shift() : 200;
+        if (st !== 200) return { getResponseCode: () => st, getContentText: () => JSON.stringify({ error: { code: st, message: 'This model is currently experiencing high demand.' } }) };
         const body = { candidates: [{ content: { parts: [{ text: JSON.stringify(geminiReply) }] } }] };
         return { getResponseCode: () => 200, getContentText: () => JSON.stringify(body) };
       }
@@ -306,6 +322,44 @@ check('redelivered event ignored', () => {
   const ev = { type: 'message', webhookEventId: 'dup1', replyToken: 'r', source: { type: 'group', groupId: G, userId: 'Ustaff' }, message: { type: 'text', text: 'สรุป' } };
   assert.strictEqual(post([ev]).length, 1);
   assert.strictEqual(post([ev]).length, 0);
+});
+
+check('gemini 503 retries then falls back to lite model', () => {
+  geminiReply = { is_financial: true, doc_type: 'transfer_slip', amount: 1600, currency: 'THB', datetime: '2569-10-09 18:15', sender_name: 'KAMOLWAT', receiver_name: 'กมลทิพย์', bank: 'Krungsri', ref: 'KSA0000000980324917', direction: 'expense', category: 'รายจ่ายอื่นๆ' };
+  geminiModelsCalled.length = 0;
+  geminiStatus.push(503, 503);
+  const before = tx().length;
+  const m = image('Ustaff');
+  assert.deepStrictEqual(geminiModelsCalled, ['gemini-flash-latest', 'gemini-flash-latest', 'gemini-flash-lite-latest']);
+  assert.strictEqual(tx().length, before + 1);
+  assert.ok(m.some((x) => x.type === 'flex'));
+});
+
+check('all models fail → friendly message + retry button → retry succeeds once', () => {
+  geminiReply = { is_financial: true, doc_type: 'transfer_slip', amount: 777, currency: 'THB', datetime: '2026-10-17 10:00', ref: 'RETRY-REF-001', direction: 'expense', category: 'รายจ่ายอื่นๆ' };
+  geminiStatus.push(503, 503, 503, 503);
+  const before = tx().length;
+  let m = image('Ustaff');
+  const warn = m.find((x) => x.quickReply);
+  assert.ok(warn, 'has retry quick reply');
+  assert.match(warn.text, /คนใช้เยอะชั่วคราว/);
+  assert.doesNotMatch(warn.text, /"error"/);
+  assert.strictEqual(tx().length, before);
+  const data = warn.quickReply.items[0].action.data;
+  m = postback('Ustaff', data);
+  assert.ok(m.some((x) => x.type === 'flex'));
+  assert.strictEqual(tx().length, before + 1);
+  m = postback('Ustaff', data);
+  assert.match(txt(m), /อ่านเสร็จไปแล้ว/);
+  assert.strictEqual(tx().length, before + 1);
+});
+
+check('bad api key (400) does not retry', () => {
+  geminiModelsCalled.length = 0;
+  geminiStatus.push(400);
+  const m = image('Ustaff');
+  assert.strictEqual(geminiModelsCalled.length, 1);
+  assert.match(txt(m), /GEMINI_API_KEY/);
 });
 
 check('token issued from channel id/secret and cached', () => {

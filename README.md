@@ -179,6 +179,7 @@ tests/simulate.js       ทดสอบแบบจำลอง: node tests/simu
 | `DAILY_SUMMARY` / `DAILY_SUMMARY_HOUR` | เปิดหรือปิดการสรุปรายวัน และเวลาที่ส่ง |
 | `DASHBOARD_KEY` | รหัสในลิงก์แดชบอร์ด ถ้าลิงก์หลุดให้เปลี่ยนค่านี้ |
 | `GEMINI_MODEL` | ค่าเริ่มต้นคือ `gemini-flash-latest` ซึ่งเป็น alias ของ Flash รุ่นล่าสุด ถ้าต้องการ pin รุ่นให้ใช้ `gemini-3.8-flash` หรือ `gemini-3.5-flash-lite` |
+| `GEMINI_FALLBACK_MODELS` | รุ่นสำรองเมื่อรุ่นหลักคนใช้เยอะ (503) ค่าเริ่มต้น `gemini-flash-lite-latest` ระบบจะลองซ้ำและสลับให้อัตโนมัติ ถ้ายังไม่ได้จะมีปุ่ม 🔄 ลองอ่านใหม่ |
 
 ## ข้อจำกัดของแพ็กเกจฟรีที่ควรรู้
 
