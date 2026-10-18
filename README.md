@@ -110,7 +110,7 @@ tests/simulate.js       ทดสอบแบบจำลอง: node tests/simu
    - ถ้ายังไม่มี ให้ไปที่ LINE OA Manager → ตั้งค่า → Messaging API → **เปิดใช้งาน**
 2. แท็บ **Basic settings** → คัดลอก **Channel ID** และ **Channel secret** ไปวางที่ `Config` ช่อง `LINE_CHANNEL_ID` และ `LINE_CHANNEL_SECRET` ระบบจะออก token ให้เองและต่ออายุอัตโนมัติ (หรือจะออก long-lived token แล้ววางที่ `LINE_CHANNEL_ACCESS_TOKEN` แทนก็ได้)
 3. ใน **LINE OA Manager**:
-   - ไปที่ ตั้งค่าการตอบกลับ: เปิด **Webhook**, ปิด **ข้อความตอบกลับอัตโนมัติ**, ปิด **ข้อความทักทาย** (ถ้าไม่ต้องการ)
+   - ไปที่ ตั้งค่าการตอบกลับ: เปิด **Webhook**, ปิด **ข้อความตอบกลับอัตโนมัติ** (สำคัญมาก ไม่เช่นนั้น LINE จะส่งข้อความสำเร็จรูปแทนบอท), ปิด **ข้อความทักทาย** (ถ้าไม่ต้องการ)
    - ไปที่ ตั้งค่าบัญชี: เปิด **อนุญาตให้บัญชีเข้าร่วมแชทกลุ่ม**
 
 ### 5) Deploy เป็น Web App
@@ -120,7 +120,7 @@ tests/simulate.js       ทดสอบแบบจำลอง: node tests/simu
 2. กด Deploy แล้วคัดลอก URL ที่ลงท้ายด้วย `/exec` ไปวางที่ `Config` ช่อง `WEB_APP_URL`
 3. ใน Google Sheet กด **EA Finance → แสดงลิงก์ Webhook / Dashboard**
 4. นำ **Webhook URL** (มี `?key=...` ต่อท้าย) ไปวางที่ LINE Developers → Messaging API → **Webhook URL** แล้วเปิด **Use webhook**
-   - ถ้ากด Verify แล้วขึ้น error 302 ไม่ต้องตกใจ เป็นเรื่องปกติของ Apps Script ให้ทดสอบด้วยการทักแชทหาบอทแทน
+    - กด Verify ควรขึ้น Success ถ้าไม่ขึ้น ให้ตรวจว่า URL ลงท้าย /exec และมี ?key=... ครบ
 5. กด **EA Finance → 2) ทดสอบการเชื่อมต่อ** ควรเห็น ✅ ทั้ง LINE และ Gemini
 
 ### 6) ใช้งานในกลุ่มทีม
