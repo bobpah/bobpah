@@ -326,18 +326,20 @@ check('redelivered event ignored', () => {
 
 check('gemini 503 retries then falls back to lite model', () => {
   geminiReply = { is_financial: true, doc_type: 'transfer_slip', amount: 1600, currency: 'THB', datetime: '2569-10-09 18:15', sender_name: 'KAMOLWAT', receiver_name: 'กมลทิพย์', bank: 'Krungsri', ref: 'KSA0000000980324917', direction: 'expense', category: 'รายจ่ายอื่นๆ' };
+  ctx.setConfig('GEMINI_MODEL', 'gemini-flash-latest');
+  ctx.setConfig('GEMINI_FALLBACK_MODELS', 'gemini-3.5-flash-lite,gemini-2.5-flash');
   geminiModelsCalled.length = 0;
   geminiStatus.push(503, 503);
   const before = tx().length;
   const m = image('Ustaff');
-  assert.deepStrictEqual(geminiModelsCalled, ['gemini-flash-latest', 'gemini-flash-latest', 'gemini-flash-lite-latest']);
+  assert.deepStrictEqual(geminiModelsCalled, ['gemini-flash-latest', 'gemini-flash-latest', 'gemini-3.5-flash-lite']);
   assert.strictEqual(tx().length, before + 1);
   assert.ok(m.some((x) => x.type === 'flex'));
 });
 
 check('all models fail → friendly message + retry button → retry succeeds once', () => {
   geminiReply = { is_financial: true, doc_type: 'transfer_slip', amount: 777, currency: 'THB', datetime: '2026-10-17 10:00', ref: 'RETRY-REF-001', direction: 'expense', category: 'รายจ่ายอื่นๆ' };
-  geminiStatus.push(503, 503, 503, 503);
+  geminiStatus.push(503, 503, 503, 503, 503, 503, 503, 503);
   const before = tx().length;
   let m = image('Ustaff');
   const warn = m.find((x) => x.quickReply);

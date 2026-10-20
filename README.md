@@ -178,8 +178,8 @@ tests/simulate.js       ทดสอบแบบจำลอง: node tests/simu
 | `FX_USD` | อัตราแลก USD เป็นบาท (เพิ่ม `FX_EUR` ฯลฯ เองได้) |
 | `DAILY_SUMMARY` / `DAILY_SUMMARY_HOUR` | เปิดหรือปิดการสรุปรายวัน และเวลาที่ส่ง |
 | `DASHBOARD_KEY` | รหัสในลิงก์แดชบอร์ด ถ้าลิงก์หลุดให้เปลี่ยนค่านี้ |
-| `GEMINI_MODEL` | ค่าเริ่มต้นคือ `gemini-flash-latest` ซึ่งเป็น alias ของ Flash รุ่นล่าสุด ถ้าต้องการ pin รุ่นให้ใช้ `gemini-3.8-flash` หรือ `gemini-3.5-flash-lite` |
-| `GEMINI_FALLBACK_MODELS` | รุ่นสำรองเมื่อรุ่นหลักคนใช้เยอะ (503) ค่าเริ่มต้น `gemini-flash-lite-latest` ระบบจะลองซ้ำและสลับให้อัตโนมัติ ถ้ายังไม่ได้จะมีปุ่ม 🔄 ลองอ่านใหม่ |
+| `GEMINI_MODEL` | โมเดลหลักสำหรับอ่านสลิป ค่าเริ่มต้นใหม่คือ `gemini-3.5-flash-lite`; ระบบจะใช้ค่าที่มีอยู่เดิมต่อไปจนกว่าจะเปลี่ยนเอง |
+| `GEMINI_FALLBACK_MODELS` | รายชื่อโมเดลสำรองคั่นด้วย comma ค่าเริ่มต้น `gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-2.5-flash`; ระบบ retry, สลับโมเดล และมีปุ่ม 🔄 ลองอ่านใหม่ถ้าทุกโมเดลยังไม่พร้อม |
 
 ## ข้อจำกัดของแพ็กเกจฟรีที่ควรรู้
 

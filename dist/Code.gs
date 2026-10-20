@@ -283,8 +283,8 @@ function configDefaults_() {
     ['LINE_CHANNEL_SECRET', '', 'LINE Developers > Basic settings > Channel secret (ระบบออก token ให้เองอัตโนมัติ)'],
     ['LINE_CHANNEL_ACCESS_TOKEN', '', '(ไม่บังคับ) ถ้าใส่ long-lived token จะใช้อันนี้แทน ID/Secret'],
     ['GEMINI_API_KEY', '', 'ฟรีจาก https://aistudio.google.com/apikey'],
-    ['GEMINI_MODEL', 'gemini-flash-latest', 'alias รุ่นล่าสุด; ถ้าต้องการ pin รุ่นใช้ gemini-3.8-flash หรือ gemini-3.5-flash-lite'],
-    ['GEMINI_FALLBACK_MODELS', 'gemini-flash-lite-latest', 'รุ่นสำรองเมื่อรุ่นหลักคนใช้เยอะ (คั่นด้วย ,)'],
+    ['GEMINI_MODEL', 'gemini-3.5-flash-lite', 'โมเดลหลักสำหรับอ่านสลิป; ใช้รุ่นที่เปิดใน Gemini API ของคีย์นี้'],
+    ['GEMINI_FALLBACK_MODELS', 'gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-2.5-flash', 'โมเดลสำรองคั่นด้วย comma; ระบบ retry เมื่อเจอ 429/5xx หรือโมเดลหนาแน่น'],
     ['WEB_APP_URL', '', 'วาง URL ที่ได้จาก Deploy > Web app (ลงท้าย /exec)'],
     ['WEBHOOK_KEY', randomKey_(24), 'รหัสลับต่อท้าย webhook (?key=) — ห้ามเผยแพร่'],
     ['DASHBOARD_KEY', randomKey_(16), 'รหัสลับเปิดแดชบอร์ด เปลี่ยนได้ถ้าลิงก์หลุด'],
@@ -637,8 +637,9 @@ var GEMINI_RETRY_CODES = [429, 500, 502, 503, 504];
 /** รายชื่อรุ่นที่จะลองตามลำดับ: GEMINI_MODEL แล้วต่อด้วย GEMINI_FALLBACK_MODELS */
 function geminiModels_() {
   var cfg = getConfig();
-  var list = [cfg.GEMINI_MODEL || 'gemini-flash-latest'];
-  var fb = cfg.GEMINI_FALLBACK_MODELS === undefined ? 'gemini-flash-lite-latest' : String(cfg.GEMINI_FALLBACK_MODELS);
+  var list = [cfg.GEMINI_MODEL || 'gemini-3.5-flash-lite'];
+  // ต่อท้ายรุ่นที่รู้ว่าใช้งานได้ เพื่อกันค่า fallback เก่าหรือ alias ที่เลิกให้บริการ
+  var fb = String(cfg.GEMINI_FALLBACK_MODELS || '') + ',gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-2.5-flash';
   fb.split(',').map(function (m) { return m.trim(); }).filter(String).forEach(function (m) {
     if (list.indexOf(m) < 0) list.push(m);
   });

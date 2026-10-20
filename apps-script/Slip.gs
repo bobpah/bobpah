@@ -5,8 +5,9 @@ var GEMINI_RETRY_CODES = [429, 500, 502, 503, 504];
 /** รายชื่อรุ่นที่จะลองตามลำดับ: GEMINI_MODEL แล้วต่อด้วย GEMINI_FALLBACK_MODELS */
 function geminiModels_() {
   var cfg = getConfig();
-  var list = [cfg.GEMINI_MODEL || 'gemini-flash-latest'];
-  var fb = cfg.GEMINI_FALLBACK_MODELS === undefined ? 'gemini-flash-lite-latest' : String(cfg.GEMINI_FALLBACK_MODELS);
+  var list = [cfg.GEMINI_MODEL || 'gemini-3.5-flash-lite'];
+  // ต่อท้ายรุ่นที่รู้ว่าใช้งานได้ เพื่อกันค่า fallback เก่าหรือ alias ที่เลิกให้บริการ
+  var fb = String(cfg.GEMINI_FALLBACK_MODELS || '') + ',gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-2.5-flash';
   fb.split(',').map(function (m) { return m.trim(); }).filter(String).forEach(function (m) {
     if (list.indexOf(m) < 0) list.push(m);
   });
