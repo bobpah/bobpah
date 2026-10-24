@@ -1,56 +1,81 @@
-# Money Heist Clone
+# EA Lab (MT5)
 
-โปรเจกต์โคลน EA **Money Heist** (MT5, XAUUSD) ให้ทำงานเหมือนตัวจริง
+รวม EA และเครื่องมือสำหรับ MT5 (XAUUSD)
 
-## ไฟล์
+## โครงสร้างไฟล์
 
 | ไฟล์ | คืออะไร |
 |---|---|
-| `MQL5/Experts/MoneyHeist_Clone_v4.mq5` | ตัวโคลนร่างแรก เขียนตามโครงอินพุตของ Money Heist |
-| `MQL5/Presets/MoneyHeist_original_bb.set` | ค่าตั้งของ Money Heist ตัวจริง (`bb.set`) |
-| `MQL5/Presets/MoneyHeist_Clone_v4.set` | ค่าตั้งของ v4 = ค่าเดียวกับตัวจริง + ค่าปรับจูนเพิ่ม |
+| `MQL5/Include/JUED/Dashboard.mqh` | แดชบอร์ด JUED CORE (คลาส `CJuedDashboard`) ใช้ร่วมกันทุก EA |
+| `MQL5/Experts/JUED_Core_Dashboard.mq5` | แดชบอร์ดแบบแยกตัว ไม่เทรด วางคู่ EA ตัวไหนก็ได้ |
+| `MQL5/Experts/JUED_Core_EA.mq5` | EA เบรกเส้นเทรนด์ + ATR + เข้าได้ 3 ไม้ (โครงสำหรับโคลน DNA CORE) |
+| `MQL5/Experts/MoneyHeist_Clone_v4.mq5` | โคลน Money Heist (จาก `bb.set`) + แดชบอร์ด |
+| `MQL5/Presets/MoneyHeist_original_bb.set` | ค่าตั้งของ Money Heist ตัวจริง |
+| `MQL5/Presets/MoneyHeist_Clone_v4.set` | ค่าตั้งของ v4 |
 
-## ข้อมูลที่รู้จาก `bb.set`
+## วิธีติดตั้ง
 
-ไฟล์ `Money Heist.ex5` ถูกเข้ารหัส (สร้างจาก fxDreema) อ่านโค้ดไม่ได้ ข้อมูลที่ใช้มีแค่ค่าตั้งเท่านั้น:
+1. คัดลอกโฟลเดอร์ `MQL5/Include/JUED` → `<MT5 Data Folder>/MQL5/Include/JUED`
+2. คัดลอกไฟล์ใน `MQL5/Experts` → `<MT5 Data Folder>/MQL5/Experts`
+3. เปิด MetaEditor แล้ว Compile (F7) ทีละไฟล์
+4. ทดสอบใน Strategy Tester / บัญชีเดโมก่อนเสมอ
 
-- อินดิเคเตอร์ 2 ตัว ค่า 20 / 100
-- Lot 0.02 คงที่ (ไม่มีช่องตัวคูณ)
-- ระยะกริด `Distance` = 200 จุด
-- โซนจาก `Candle_ID_Zone` = 15 แท่ง
-- Pending ห่างโซน `Pending_Price_Offset` = 80 จุด
-- ปิดทั้งหมดที่กำไร $80 (`Profit_Grid_Close_All`, `Profit_Follow_Close_All`)
-- หยุดรายวันที่กำไร $100
-- เทรด 01:30–23:00 ทุกวัน, Magic 1851
+> หา Data Folder: MT5 → File → Open Data Folder
 
-## โลจิกของ v4 (ส่วนที่เดา ต้องยืนยันด้วยการเทสต์)
+## แดชบอร์ด JUED CORE
 
-1. **โซน** = High สูงสุด / Low ต่ำสุด ของ 15 แท่งที่ปิดแล้ว
-2. **เข้าไม้แรก** = ตั้ง Pending ห่างโซน 80 จุด ทั้ง Buy และ Sell (ค่าเริ่มต้นเป็น Buy Stop / Sell Stop) ย้ายตามโซนทุกแท่งใหม่
-3. **พอไม้แรกเข้า** = ลบ Pending ฝั่งตรงข้าม แล้วเริ่มกริด
-4. **กริด** = ราคาวิ่งสวนถึง 200 จุดจากไม้ที่แย่ที่สุด → เปิดเพิ่ม 0.02 ล็อต (สูงสุด 50 ไม้)
-5. **ปิด** = มีไม้เดียวใช้ `Profit_Follow_Close_All`, มีหลายไม้ใช้ `Profit_Grid_Close_All` → ปิดทั้งตะกร้า
-6. **หยุดรายวัน** = กำไรวันนี้ (ปิดแล้ว + ลอย) ถึง $100 → ปิดหมดและหยุดถึงวันใหม่
-7. **เวลา** = อ่านได้ทั้ง `01.30` และ `01:30` (ในไฟล์ตัวจริงเขียนปนกัน)
+- การ์ด: Growth, Balance, Equity, Drawdown (ตอนนี้/สูงสุด), Win rate, Profit Factor
+- ภาพรวมบัญชี + ลูกโลกเคลื่อนไหว, กราฟ Balance และ Equity
+- กำไร วันนี้ / เมื่อวาน / สัปดาห์นี้ / เดือนนี้
+- สถานะไม้ Buy/Sell + บรรทัดสถานะของ EA
+- ปุ่ม **AUTO** (หยุด/เดินการเปิดไม้ใหม่ ผ่าน GlobalVariable `JUED_AUTO_<magic>`),
+  **CLOSE BASKET** (ปิดทั้งตะกร้า ถามยืนยันก่อน), **RESET SESSION**
 
-### ค่าปรับจูน (Zone_5 "Clone Tuning") ใช้ปรับให้ตรงกับตัวจริง
+ใช้ในโค้ด EA:
 
-| อินพุต | ตัวเลือก | ใช้เมื่อ |
-|---|---|---|
-| `Pending_Mode` | Stop / Limit | ตัวจริงเข้าตามเบรก หรือเข้าสวนที่ขอบโซน |
-| `Grid_Mode` | Against / With / Both | ตัวจริงเติมไม้ตอนขาดทุน ตอนกำไร หรือทั้งสองแบบ (Both = ออร์เดอร์เยอะสุด) |
-| `Trend_Mode` | Off / MA1 vs MA2 / Close vs MA2 | ตัวจริงเลือกฝั่งตาม MA 20/100 หรือไม่ |
-| `MA_Method` | SMA / EMA / SMMA / LWMA | ชนิดของ MA 20/100 |
-| `Lot_Multiplier` | 1.0 = คงที่ | ถ้าเทสต์แล้วเห็นตัวจริงล็อตโตขึ้น |
-| `Signal_TF` | TF ที่ใช้สร้างโซน | ถ้าตัวจริงใช้ TF ตายตัว |
+```cpp
+#include <JUED\Dashboard.mqh>
+CJuedDashboard dash;
+// OnInit:   dash.Init("JUED CORE", "V1.00", magic, true, 10, 20); EventSetMillisecondTimer(200);
+// OnTimer:  dash.OnTimer();
+// OnChartEvent: dash.OnChartEvent(id, lparam, dparam, sparam);
+// OnTradeTransaction: dash.MarkDirty();
+// ก่อนเปิดไม้ใหม่: if(!dash.AutoOn()) return;
+```
+
+## JUED Core EA (โครงสำหรับโคลน DNA CORE)
+
+DNA CORE V1.95 (.ex5) ถูกเข้ารหัส อ่านโค้ดไม่ได้ สิ่งที่รู้: XAUUSD M15, ใช้ ATR, "Entry 1-3",
+ล็อตอัตโนมัติต่อทุน 10K (บัญชี Cent), สเปรด 17–25, มีเส้นแดง (น่าจะ MA) และเส้นขาว (เส้นเทรนด์/กรอบเบรก),
+หมดอายุ 31 ต.ค. 2026
+
+โลจิกตั้งต้น (สมมติฐาน รอยืนยันด้วย Report ของตัวจริง):
+
+1. **เทรนด์**: ราคาปิดเทียบ EMA 200 (เส้นแดง)
+2. **เส้นขาว**: เส้นต้านลาดลงผ่าน 2 Pivot High ล่าสุด / เส้นรับลาดขึ้นผ่าน 2 Pivot Low ล่าสุด
+   (ถ้าไม่มี ใช้ระดับ Pivot ล่าสุดแนวนอน)
+3. **Entry 1**: แท่งปิดทะลุเส้นตามทิศเทรนด์
+4. **Entry 2–3**: เพิ่มทุก `Add_Step_ATR` × ATR (แบบย่อตัว หรือแบบตามเทรนด์ เลือกได้)
+5. **ออก**: TP ตะกร้า = ราคาเฉลี่ย ± `TP_ATR`×ATR, SL ตะกร้า = Entry 1 ∓ `SL_ATR`×ATR,
+   Breakeven, เป้าเงินตะกร้า, ลิมิตกำไร/ขาดทุนรายวัน
+6. **ล็อต**: `Lot_Per_Step` ต่อทุนทุก `Capital_Step` (ค่าเริ่ม 0.01 ต่อ 10,000)
+
+ค่าที่ต้องจูนให้ตรงตัวจริง: `Trend_MA_Period`, `Pivot_Left/Right`, `Add_Mode`, `Add_Step_ATR`,
+`TP_ATR`, `SL_ATR`, `BE_Trigger_ATR`
+
+## Money Heist Clone v4
+
+ดูรายละเอียดโลจิกในหัวไฟล์ `MoneyHeist_Clone_v4.mq5` — โซน 15 แท่ง + Pending ห่าง 80 จุด,
+กริด 200 จุด, ปิดตะกร้า $80, หยุดรายวัน $100, เวลา 01:30–23:00
+ค่าปรับจูนในกลุ่ม "Clone Tuning" และกด AUTO บนแดชบอร์ดเพื่อหยุดเปิดไม้ใหม่ได้
 
 ## ขั้นตอนเทสต์เทียบกับตัวจริง
 
-1. คัดลอก `MoneyHeist_Clone_v4.mq5` ไปที่ `MQL5/Experts` ของ MT5 แล้ว Compile ใน MetaEditor (F7)
-2. Strategy Tester (Ctrl+R): XAUUSD, TF เดียวกัน, ช่วงเวลาเดียวกัน, **Every tick based on real ticks**
-3. รัน **Money Heist** ด้วย `MoneyHeist_original_bb.set` → บันทึก Report (HTML)
-4. รัน **Clone v4** ด้วย `MoneyHeist_Clone_v4.set` → บันทึก Report
-5. เทียบ: จำนวนออร์เดอร์, เวลาเข้า, ระยะห่างแต่ละไม้, ล็อต, จุดปิด
-6. ส่ง Report ทั้งสองไฟล์มาเพื่อปรับค่าใน Zone_5 หรือแก้โลจิกต่อ
+1. Strategy Tester: XAUUSD, TF เดียวกัน, ช่วงเวลาเดียวกัน, **Every tick based on real ticks**
+2. รันตัวจริงก่อน → Export Report (HTML) + แคปหน้า Inputs
+3. รันตัวโคลน → Export Report
+4. เทียบ: จำนวนไม้, เวลาเข้า, ระยะห่าง, ล็อต, จุดปิด, Drawdown
+5. ปรับค่าจูนแล้วรันซ้ำ
 
-> ⚠️ ระบบนี้ไม่มี Stop Loss และใช้กริด ควรเทสต์ในบัญชีเดโมก่อนใช้งานจริงเสมอ
+> ⚠️ ทุกตัวยังไม่ได้ Compile/เทสต์จริงใน MT5 — เทสต์ในบัญชีเดโมก่อนใช้งานจริงเสมอ
+> Money Heist clone ไม่มี Stop Loss และใช้กริด ความเสี่ยงสูง

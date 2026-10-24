@@ -17,12 +17,13 @@
 //+------------------------------------------------------------------+
 #property copyright "JUED"
 #property link      "MoneyHeist_Clone"
-#property version   "4.00"
+#property version   "4.10"
 #property strict
 
 #include <Trade\Trade.mqh>
 #include <Trade\PositionInfo.mqh>
 #include <Trade\OrderInfo.mqh>
+#include <JUED\Dashboard.mqh>
 
 enum ENUM_PENDING_MODE
 {
@@ -109,6 +110,11 @@ input bool   Grid_Outside_Time             = true;   // Keep adding grid orders 
 input int    Max_Spread_Points             = 0;      // 0 = no spread filter
 input int    Slippage_Points               = 30;
 
+input string Zone_6                  = "Dashboard";
+input bool   Show_Dashboard                = true;   // JUED panel (AUTO button pauses new orders)
+input int    Dashboard_X                   = 10;
+input int    Dashboard_Y                   = 20;
+
 //=== Globals =========================================================
 CTrade        m_trade;
 CPositionInfo m_pos;
@@ -120,6 +126,8 @@ datetime g_lastBar = 0;
 datetime g_dayStart = 0;
 bool     g_dailyStopped = false;
 string   g_state = "INIT";
+CJuedDashboard g_dash;
+bool     g_dashOn = false;
 
 //+------------------------------------------------------------------+
 int OnInit()
@@ -141,6 +149,11 @@ int OnInit()
       return(INIT_PARAMETERS_INCORRECT);
    }
    g_dayStart = DayStart(TimeCurrent());
+   if(Show_Dashboard)
+   {
+      g_dashOn = g_dash.Init(EA_Name + " CLONE", "V4.10", MagicStart, true, Dashboard_X, Dashboard_Y);
+      EventSetMillisecondTimer(200);
+   }
    return(INIT_SUCCEEDED);
 }
 
@@ -151,7 +164,23 @@ void OnDeinit(const int reason)
    ObjectDelete(0, "MH_ZONE_HI");
    ObjectDelete(0, "MH_ZONE_LO");
    Comment("");
+   EventKillTimer();
+   if(g_dashOn) g_dash.Deinit();
 }
+
+void OnTimer() { if(g_dashOn) g_dash.OnTimer(); }
+
+void OnChartEvent(const int id, const long &lparam, const double &dparam, const string &sparam)
+{
+   if(g_dashOn) g_dash.OnChartEvent(id, lparam, dparam, sparam);
+}
+
+void OnTradeTransaction(const MqlTradeTransaction &trans, const MqlTradeRequest &req, const MqlTradeResult &res)
+{
+   if(g_dashOn && trans.type == TRADE_TRANSACTION_DEAL_ADD) g_dash.MarkDirty();
+}
+
+bool AutoAllowed() { return !g_dashOn || g_dash.AutoOn(); }
 
 //+------------------------------------------------------------------+
 void OnTick()
@@ -200,13 +229,20 @@ void OnTick()
    if(total > 0)
    {
       if(Delete_Opposite_On_Fill) DeleteAllPending();
-      if(inTime || Grid_Outside_Time) ManageGrid(buyCount, sellCount, lowBuy, highBuy, lowSell, highSell);
+      if((inTime || Grid_Outside_Time) && AutoAllowed()) ManageGrid(buyCount, sellCount, lowBuy, highBuy, lowSell, highSell);
       g_state = StringFormat("BASKET OPEN  B:%d  S:%d", buyCount, sellCount);
       ShowDashboard(dailyProfit, floating, 0, 0, 0);
       return;
    }
 
    //--- No positions: build zone and place pending orders
+   if(!AutoAllowed())
+   {
+      DeleteAllPending();
+      g_state = "PAUSED (AUTO OFF)";
+      ShowDashboard(dailyProfit, floating, 0, 0, 0);
+      return;
+   }
    if(!inTime)
    {
       DeleteAllPending();
@@ -525,6 +561,7 @@ void DrawLine(string name, double price, color clr)
 
 void ShowDashboard(double daily, double floating, double zoneHi, double zoneLo, int trend)
 {
+   if(g_dashOn) { g_dash.SetStatus(g_state); Comment(""); return; }
    string trendTxt = (Trend_Mode == TREND_OFF) ? "OFF (both sides)" : (trend > 0 ? "BUY" : (trend < 0 ? "SELL" : "FLAT"));
    Comment(StringFormat(
       "%s  (Clone v4)\n"
