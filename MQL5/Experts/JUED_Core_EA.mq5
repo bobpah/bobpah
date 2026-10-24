@@ -112,7 +112,9 @@ int OnInit()
    ResetDay();
    RestoreBasket();
 
-   if(Show_Dashboard)
+   // canvas redraw on a 200 ms timer makes non-visual backtests ~50x slower
+   bool fastTest = MQLInfoInteger(MQL_TESTER) && !MQLInfoInteger(MQL_VISUAL_MODE);
+   if(Show_Dashboard && !fastTest)
    {
       g_dashOn = g_dash.Init("JUED CORE", "V1.00", Magic, true, Dashboard_X, Dashboard_Y);
       EventSetMillisecondTimer(200);
