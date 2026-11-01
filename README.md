@@ -8,6 +8,8 @@
 |---|---|
 | `MQL5/Include/JUED/Dashboard.mqh` | แดชบอร์ด JUED CORE (คลาส `CJuedDashboard`) ใช้ร่วมกันทุก EA |
 | `MQL5/Experts/JUED_Core_Dashboard.mq5` | แดชบอร์ดแบบแยกตัว ไม่เทรด วางคู่ EA ตัวไหนก็ได้ |
+| `MQL5/Experts/JUED_RSI_Scalper.mq5` | EA เทคนิค RSI(7)+MACD สุดโต่งบน M1 (ดูหัวข้อ RSI Extreme) |
+| `MQL5/Indicators/JUED_RSI_Extreme.mq5` | อินดิเคเตอร์ RSI+MACD หน้าต่างเดียว + เส้น Sell/Tp/Buy + ลูกศร |
 | `MQL5/Experts/JUED_Core_EA.mq5` | EA เบรกเส้นเทรนด์ + ATR + เข้าได้ 3 ไม้ (โครงสำหรับโคลน DNA CORE) |
 | `MQL5/Experts/MoneyHeist_Clone_v4.mq5` | โคลน Money Heist (จาก `bb.set`) + แดชบอร์ด |
 | `MQL5/Presets/MoneyHeist_original_bb.set` | ค่าตั้งของ Money Heist ตัวจริง |
@@ -16,7 +18,7 @@
 ## วิธีติดตั้ง
 
 1. คัดลอกโฟลเดอร์ `MQL5/Include/JUED` → `<MT5 Data Folder>/MQL5/Include/JUED`
-2. คัดลอกไฟล์ใน `MQL5/Experts` → `<MT5 Data Folder>/MQL5/Experts`
+2. คัดลอกไฟล์ใน `MQL5/Experts` → `<MT5 Data Folder>/MQL5/Experts` และ `MQL5/Indicators` → `<MT5 Data Folder>/MQL5/Indicators`
 3. เปิด MetaEditor แล้ว Compile (F7) ทีละไฟล์
 4. ทดสอบใน Strategy Tester / บัญชีเดโมก่อนเสมอ
 
@@ -62,6 +64,30 @@ DNA CORE V1.95 (.ex5) ถูกเข้ารหัส อ่านโค้ด
 
 ค่าที่ต้องจูนให้ตรงตัวจริง: `Trend_MA_Period`, `Pivot_Left/Right`, `Add_Mode`, `Add_Step_ATR`,
 `TP_ATR`, `SL_ATR`, `BE_Trigger_ATR`
+
+## RSI Extreme (เทคนิคจากคลิป TikTok: RSI(7) + MACD(7,26,9) บน M1)
+
+| ไฟล์ | คืออะไร |
+|---|---|
+| `MQL5/Indicators/JUED_RSI_Extreme.mq5` | หน้าต่างเดียวแบบในคลิป: RSI(7) เส้นแดง + MACD histogram (สเกลเข้า 0–100 รอบ 50) + เส้น Sell/Tp/Buy + ลูกศรเข้าไม้ทั้งในหน้าต่างและบนกราฟราคา |
+| `MQL5/Experts/JUED_RSI_Scalper.mq5` | EA ใช้กติกาเดียวกับลูกศร เพื่อ Backtest ว่าเทคนิคได้กำไรจริงไหม |
+| `MQL5/Include/JUED/RsiExtreme.mqh` | กติกาสัญญาณที่ใช้ร่วมกัน (ลูกศร = จุดเข้า EA ตรงกันเสมอ) |
+
+**สัญญาณ** (แท่งปิดแล้ว ไม่ Repaint) — เลือกโหมด `Confirm`:
+- `RSIX_TOUCH` RSI แตะโซน (เร็วสุด เสี่ยงสุด)
+- `RSIX_MACD_TURN` RSI อยู่ในโซน + แท่ง MACD เริ่มหด (ค่าเริ่มต้น ใกล้ในคลิปที่สุด)
+- `RSIX_RSI_EXIT` RSI ออกจากโซนแล้ว (ช้าสุด ปลอดภัยสุด)
+
+Sell โซน 88.63 / Buy โซน 12 · TP: Sell 78/68/57, Buy 18/27/38 (RSI แท่งปัจจุบัน)
+
+**EA เพิ่มการคุมความเสี่ยงที่คลิปไม่มี**: SL = 4×ATR จากไม้แรก, ล็อตตาม Risk 1% ต่อชุด (รวมทุก Layer),
+Layer สูงสุด 3 ห่าง 80 จุด, ปิดบางส่วนที่ Tp1/Tp2 แล้วเลื่อน SL บังทุน, ปิดทั้งหมดที่ Tp3,
+Time stop 60 นาที, Daily loss 3%, กรอง ADX/สเปรด/ช่วงเวลา, Cooldown หลังปิดชุด
+
+**Backtest ที่ควรรัน**: XAUUSD **M1**, **Every tick based on real ticks**, ย้อนหลัง 3–6 เดือน
+เทียบ 3 โหมด `Confirm` และลอง `ADX_Max` = 0 / 30 / 40 — ดู Profit Factor, Max Drawdown, จำนวนไม้ที่โดน SL
+
+> ปิดบางส่วนต้องมีล็อตต่อ Layer มากกว่าล็อตขั้นต่ำ (เช่น ≥0.03) ถ้าเป็น 0.01 จะปิดทั้งชุดที่ Tp1
 
 ## Money Heist Clone v4
 
