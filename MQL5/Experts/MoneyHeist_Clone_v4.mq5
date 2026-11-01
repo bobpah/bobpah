@@ -109,6 +109,13 @@ input int    Max_Orders                    = 50;     // Safety cap per basket
 input bool   Grid_Outside_Time             = true;   // Keep adding grid orders outside trading hours
 input int    Max_Spread_Points             = 0;      // 0 = no spread filter
 input int    Slippage_Points               = 30;
+input bool   Close_In_Points               = false;  // Profit_*_Close_All = distance (input units) past basket average, not money
+input bool   Lot_Linear                    = false;  // add #n lot = Lot x n (0.02,0.02,0.04,0.06...) instead of Lot_Multiplier
+input bool   Grid_One_Per_Bar              = false;  // at most one grid add per Signal_TF bar
+input bool   Zone_With_Forming_Bar         = false;  // zone also includes the forming bar
+input bool   Cancel_Pending_On_Flip        = false;  // delete a pending order whose side no longer matches the trend
+input bool   Wait_Inside_Zone              = false;  // place a pending only when price is back inside the previous tick's zone
+input bool   Use_Daily_Stop                = true;   // apply Profit_Daily_Stop_EA (the original never stopped on it in tests)
 
 input string Zone_6                  = "Dashboard";
 input bool   Show_Dashboard                = true;   // JUED panel (AUTO button pauses new orders)
@@ -128,6 +135,11 @@ bool     g_dailyStopped = false;
 string   g_state = "INIT";
 CJuedDashboard g_dash;
 bool     g_dashOn = false;
+datetime g_lastGridBar = 0;
+double   g_prevZoneHi = 0, g_prevZoneLo = 0;
+
+// input unit -> price: 10 points on 3/5-digit quotes (2.00 per 200 on XAUUSD both 2 and 3 digits)
+double Unit() { return (_Digits == 3 || _Digits == 5) ? _Point * 10.0 : _Point; }
 
 //+------------------------------------------------------------------+
 int OnInit()
@@ -149,7 +161,9 @@ int OnInit()
       return(INIT_PARAMETERS_INCORRECT);
    }
    g_dayStart = DayStart(TimeCurrent());
-   if(Show_Dashboard)
+   // canvas redraw on a 200 ms timer makes non-visual backtests ~50x slower
+   bool fastTest = MQLInfoInteger(MQL_TESTER) && !MQLInfoInteger(MQL_VISUAL_MODE);
+   if(Show_Dashboard && !fastTest)
    {
       g_dashOn = g_dash.Init(EA_Name + " CLONE", "V4.10", MagicStart, true, Dashboard_X, Dashboard_Y);
       EventSetMillisecondTimer(200);
@@ -202,7 +216,7 @@ void OnTick()
 
    //--- Daily stop
    double dailyProfit = GetClosedProfitToday() + floating;
-   if(Profit_Daily_Stop_EA > 0 && dailyProfit >= Profit_Daily_Stop_EA) g_dailyStopped = true;
+   if(Use_Daily_Stop && Profit_Daily_Stop_EA > 0 && dailyProfit >= Profit_Daily_Stop_EA) g_dailyStopped = true;
    if(g_dailyStopped)
    {
       if(total > 0) CloseAll();
@@ -214,7 +228,9 @@ void OnTick()
 
    //--- Basket profit targets
    double target = (total <= 1) ? Profit_Follow_Close_All : Profit_Grid_Close_All;
-   if(total > 0 && target > 0 && floating >= target)
+   bool hitTarget = (floating >= target);
+   if(Close_In_Points && total > 0) hitTarget = (BasketDistance() >= target * Unit());
+   if(total > 0 && target > 0 && hitTarget)
    {
       PrintFormat("Basket close: %d orders, profit %.2f >= %.2f", total, floating, target);
       CloseAll();
@@ -257,6 +273,9 @@ void OnTick()
    double zoneHi = 0, zoneLo = 0;
    if(!GetZone(zoneHi, zoneLo)) return;
 
+   double prevHi = g_prevZoneHi, prevLo = g_prevZoneLo;
+   g_prevZoneHi = zoneHi; g_prevZoneLo = zoneLo;
+
    int trend = GetTrend();   // 1 = buy only, -1 = sell only, 0 = both
    DrawLine("MH_ZONE_HI", zoneHi, clrOrange);
    DrawLine("MH_ZONE_LO", zoneLo, clrOrange);
@@ -270,8 +289,17 @@ void OnTick()
       pendBuy = 0; pendSell = 0;
    }
 
-   if(pendBuy == 0 && trend >= 0)  PlacePending(true,  zoneHi, zoneLo);
-   if(pendSell == 0 && trend <= 0) PlacePending(false, zoneHi, zoneLo);
+   if(Cancel_Pending_On_Flip && newBar && ((trend > 0 && pendSell > 0) || (trend < 0 && pendBuy > 0)))
+   {
+      DeleteAllPending();
+      pendBuy = 0; pendSell = 0;
+   }
+
+   double bidNow = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   bool buyInside  = !Wait_Inside_Zone || (prevHi > 0 && bidNow < prevHi);
+   bool sellInside = !Wait_Inside_Zone || (prevLo > 0 && bidNow > prevLo);
+   if(pendBuy == 0 && trend >= 0 && buyInside)   PlacePending(true,  zoneHi, zoneLo);
+   if(pendSell == 0 && trend <= 0 && sellInside) PlacePending(false, zoneHi, zoneLo);
 
    g_lastBar = barTime;
    g_state = "WAITING PENDING FILL";
@@ -290,6 +318,11 @@ bool GetZone(double &hi, double &lo)
    if(CopyLow (_Symbol, Signal_TF, 1, Candle_ID_Zone, l) < Candle_ID_Zone) return false;
    hi = h[ArrayMaximum(h)];
    lo = l[ArrayMinimum(l)];
+   if(Zone_With_Forming_Bar)
+   {
+      hi = MathMax(hi, iHigh(_Symbol, Signal_TF, 0));
+      lo = MathMin(lo, iLow(_Symbol, Signal_TF, 0));
+   }
    return (hi > lo);
 }
 
@@ -316,7 +349,7 @@ void PlacePending(bool isBuy, double zoneHi, double zoneLo)
 
    double ask    = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double bid    = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   double offset = Pending_Price_Offset * _Point;
+   double offset = Pending_Price_Offset * Unit();
    double minGap = (double)SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL) * _Point;
    double lot    = CalcLot(0);
    string cmt    = isBuy ? "MH Pend Buy" : "MH Pend Sell";
@@ -385,27 +418,32 @@ void ManageGrid(int buyCount, int sellCount,
 {
    double ask  = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double bid  = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   double dist = Distance * _Point;
+   double dist = Distance * Unit();
+   if(Grid_One_Per_Bar && iTime(_Symbol, Signal_TF, 0) == g_lastGridBar) return;
 
    if(buyCount > 0 && buyCount < Max_Orders)
    {
-      bool against = (Grid_Mode != GRID_WITH)    && ask <= lowBuy  - dist;
+      bool against = (Grid_Mode != GRID_WITH)    && ask < lowBuy  - dist;
       bool inFavour = (Grid_Mode != GRID_AGAINST) && ask >= highBuy + dist;
       if((against || inFavour) && IsSpreadOK())
       {
          double lot = CalcLot(buyCount);
-         if(!m_trade.Buy(lot, _Symbol, ask, 0, 0, StringFormat("MH Grid Buy #%d", buyCount + 1)))
+         if(m_trade.Buy(lot, _Symbol, ask, 0, 0, StringFormat("MH Grid Buy #%d", buyCount + 1)))
+            g_lastGridBar = iTime(_Symbol, Signal_TF, 0);
+         else
             PrintFormat("Grid BUY failed: %u %s", m_trade.ResultRetcode(), m_trade.ResultRetcodeDescription());
       }
    }
    if(sellCount > 0 && sellCount < Max_Orders)
    {
-      bool against = (Grid_Mode != GRID_WITH)    && bid >= highSell + dist;
+      bool against = (Grid_Mode != GRID_WITH)    && bid > highSell + dist;
       bool inFavour = (Grid_Mode != GRID_AGAINST) && bid <= lowSell  - dist;
       if((against || inFavour) && IsSpreadOK())
       {
          double lot = CalcLot(sellCount);
-         if(!m_trade.Sell(lot, _Symbol, bid, 0, 0, StringFormat("MH Grid Sell #%d", sellCount + 1)))
+         if(m_trade.Sell(lot, _Symbol, bid, 0, 0, StringFormat("MH Grid Sell #%d", sellCount + 1)))
+            g_lastGridBar = iTime(_Symbol, Signal_TF, 0);
+         else
             PrintFormat("Grid SELL failed: %u %s", m_trade.ResultRetcode(), m_trade.ResultRetcodeDescription());
       }
    }
@@ -416,7 +454,9 @@ double CalcLot(int existingOrders)
    double lot = Lot;
    if(Lot_By_Capital && Start_up_Capital > 0)
       lot = Lot * AccountInfoDouble(ACCOUNT_BALANCE) / Start_up_Capital;
-   if(Lot_Multiplier > 0 && existingOrders > 0)
+   if(Lot_Linear && existingOrders > 0)
+      lot *= existingOrders;
+   else if(Lot_Multiplier > 0 && existingOrders > 0)
       lot *= MathPow(Lot_Multiplier, existingOrders);
 
    double step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
@@ -453,6 +493,22 @@ void ScanPositions(int &buys, int &sells, double &floating,
          sells++;
       }
    }
+}
+
+// price distance of the basket average in profit direction (bid for buys, ask for sells)
+double BasketDistance()
+{
+   double vol = 0, sum = 0; int side = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      if(!m_pos.SelectByIndex(i)) continue;
+      if(m_pos.Symbol() != _Symbol || m_pos.Magic() != MagicStart) continue;
+      vol += m_pos.Volume(); sum += m_pos.Volume() * m_pos.PriceOpen();
+      side = (m_pos.PositionType() == POSITION_TYPE_BUY) ? 1 : -1;
+   }
+   if(vol <= 0) return 0;
+   double avg = sum / vol;
+   return (side > 0) ? SymbolInfoDouble(_Symbol, SYMBOL_BID) - avg : avg - SymbolInfoDouble(_Symbol, SYMBOL_ASK);
 }
 
 double GetClosedProfitToday()
