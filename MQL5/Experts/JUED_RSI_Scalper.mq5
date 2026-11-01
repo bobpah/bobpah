@@ -113,7 +113,9 @@ int OnInit()
       Print("WARNING: running WITHOUT stop loss (SL_ATR = 0 and SL_Points = 0)");
 
    ResetDay();
-   if(Show_Dashboard)
+   // canvas redraw on a 200 ms timer makes non-visual backtests ~50x slower
+   bool fastTest = MQLInfoInteger(MQL_TESTER) && !MQLInfoInteger(MQL_VISUAL_MODE);
+   if(Show_Dashboard && !fastTest)
    {
       g_dashOn = g_dash.Init("JUED RSI SCALPER", "V1.00", Magic, true, Dashboard_X, Dashboard_Y);
       EventSetMillisecondTimer(200);
