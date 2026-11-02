@@ -33,6 +33,7 @@
 #define JD_GREEN   0x34D399
 #define JD_RED     0xF87171
 #define JD_GOLD    0xFBBF24
+// titles use Tahoma: it has Thai glyphs (Segoe UI does not), so Thai EA names render correctly
 
 struct JuedButton { int x, y, w, h; string text; };
 
@@ -367,7 +368,7 @@ void CJuedDashboard::Draw()
    //--- Header
    string tf = StringSubstr(EnumToString((ENUM_TIMEFRAMES)_Period), 7);
    Text(JD_PAD, 6, "EA PERFORMANCE / " + _Symbol, JD_DIM, -65);
-   Text(JD_PAD, 16, m_title + " " + m_version, JD_TEXT, -105, "Segoe UI Semibold");
+   Text(JD_PAD, 16, m_title + " " + m_version, JD_TEXT, -105, "Tahoma");
    Text(JD_W - JD_PAD, 6, StringFormat("PING %.1f ms   %s %s", TerminalInfoInteger(TERMINAL_PING_LAST) / 1000.0, _Symbol, tf),
         JD_DIM, -65, "Segoe UI", TA_RIGHT | TA_TOP);
    Text(JD_W - JD_PAD, 18, autoOn ? "AUTO ON" : "PAUSED", autoOn ? JD_GREEN : JD_GOLD, -80, "Segoe UI Semibold", TA_RIGHT | TA_TOP);
@@ -388,7 +389,7 @@ void CJuedDashboard::Draw()
    Text(JD_PAD + 8, ym + 5, "SYSTEM OVERVIEW", JD_DIM, -70);
    m_cv.CircleAA(JD_PAD + 40, ym + 52, 22, Clr(JD_CYAN));
    Text(JD_PAD + 40, ym + 52, "JC", JD_CYAN, -100, "Segoe UI Semibold", TA_CENTER | TA_VCENTER);
-   Text(JD_PAD + 72, ym + 42, m_title, JD_TEXT, -90, "Segoe UI Semibold");
+   Text(JD_PAD + 72, ym + 42, m_title, JD_TEXT, -90, "Tahoma");
    int ly = ym + 82;
    Text(JD_PAD + 8, ly,      "ACCOUNT  " + IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN)), JD_DIM, -70, "Consolas");
    Text(JD_PAD + 8, ly + 12, "BROKER   " + StringSubstr(AccountInfoString(ACCOUNT_COMPANY), 0, 20), JD_DIM, -70, "Consolas");
@@ -404,7 +405,7 @@ void CJuedDashboard::Draw()
    Text(tx, ty + 56, "DRAWDOWN",      JD_DIM, -65);  Text(tx, ty + 66, StringFormat("%.2f%%", curDD), curDD > 5 ? JD_RED : JD_PURPLE, -90, "Consolas");
    Text(tx, ty + 84, "WIN RATE / PF", JD_DIM, -65);  Text(tx, ty + 94, StringFormat("%.1f%% / %.2f", winRate, pf), JD_PURPLE, -90, "Consolas");
    Sphere(xr + wr - 110, ym + hm / 2 + 4, 52);
-   Text(xr + wr - 8, ym + hm - 16, m_title, JD_TEXT, -70, "Segoe UI Semibold", TA_RIGHT | TA_TOP);
+   Text(xr + wr - 8, ym + hm - 16, m_title, JD_TEXT, -70, "Tahoma", TA_RIGHT | TA_TOP);
 
    //--- Charts + activity
    int yb = ym + hm + 8, hb = 104;

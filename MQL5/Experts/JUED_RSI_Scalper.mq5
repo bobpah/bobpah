@@ -72,6 +72,7 @@ input string Grp_System         = "=== SYSTEM ===";
 input long   Magic              = 260707;
 input int    Slippage_Points    = 30;
 input bool   Show_Dashboard     = true;
+input string Dashboard_Title    = "JUED RSI SCALPER";  // e.g. Thai name via preset
 input int    Dashboard_X        = 10;
 input int    Dashboard_Y        = 20;
 
@@ -117,7 +118,7 @@ int OnInit()
    bool fastTest = MQLInfoInteger(MQL_TESTER) && !MQLInfoInteger(MQL_VISUAL_MODE);
    if(Show_Dashboard && !fastTest)
    {
-      g_dashOn = g_dash.Init("JUED RSI SCALPER", "V1.00", Magic, true, Dashboard_X, Dashboard_Y);
+      g_dashOn = g_dash.Init(Dashboard_Title, "V1.00", Magic, true, Dashboard_X, Dashboard_Y);
       EventSetMillisecondTimer(200);
    }
    return(INIT_SUCCEEDED);
