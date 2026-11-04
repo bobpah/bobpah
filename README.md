@@ -89,6 +89,19 @@ Time stop 60 นาที, Daily loss 3%, กรอง ADX/สเปรด/ช�
 
 > ปิดบางส่วนต้องมีล็อตต่อ Layer มากกว่าล็อตขั้นต่ำ (เช่น ≥0.03) ถ้าเป็น 0.01 จะปิดทั้งชุดที่ Tp1
 
+## Pending Martingale Clone (โคลน "Pending_Matingle_V15_LT" ของ BT Trader)
+
+ตัวจริงเข้ารหัส (อ่านได้แค่ "BT Trader", v15.00) — โครงนี้สร้างจากชื่อระบบ ต้องจูนเทียบกับ Backtest ตัวจริง
+
+| โหมด | ทำงานยังไง |
+|---|---|
+| `PM_ZONE_RECOVERY` (ค่าเริ่ม) | วาง Buy Stop/Sell Stop ห่างราคา `Entry_Distance` → ไม้แรกที่เข้ากำหนดโซนกว้าง `Zone_Points` → วาง Pending ฝั่งตรงข้ามที่ขอบโซน ล็อตใหญ่ขึ้น สลับไปเรื่อยๆ → ปิดทั้งชุดเมื่อราคาวิ่งเลยขอบโซน `TP_Points` |
+| `PM_STRADDLE` | Buy Stop + Sell Stop มี SL/TP ของตัวเอง แพ้แล้วไม้ถัดไปล็อต × `Multiplier` ชนะแล้วกลับล็อตฐาน |
+
+ล็อต: `LOT_MULTIPLY` (Base × Multiplier^n) หรือ `LOT_RECOVERY` (คำนวณให้ปิดที่ TP ฝั่งไหนก็กำไร ≥ ไม้ฐาน)
+กันพอร์ตแตก: `Max_Level`, `Max_Lot`, `Equity_Stop_Pct` (ค่าเริ่ม 30%), สเปรด, ช่วงเวลา
+ค่าตั้ง: `MQL5/Presets/Pending_Martingale_Clone.set`
+
 ## Money Heist Clone v4
 
 ดูรายละเอียดโลจิกในหัวไฟล์ `MoneyHeist_Clone_v4.mq5` — โซน 15 แท่ง + Pending ห่าง 80 จุด,
