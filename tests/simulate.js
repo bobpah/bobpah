@@ -375,6 +375,13 @@ check('same slip ref is blocked, not recorded twice', () => {
   assert.match(txt(m), /บันทึกไปแล้วเป็น T\d+/);
 });
 
+check('all-time summary + cumulative line in สรุป', () => {
+  const m = text('Ustaff', 'สรุปทั้งหมด');
+  assert.match(txt(m), /สรุปผลรวมทั้งหมด/);
+  assert.match(txt(m), /รายเดือน/);
+  assert.match(txt(text('Ustaff', 'สรุป')), /สะสมทั้งหมด/);
+});
+
 check('token issued from channel id/secret and cached', () => {
   ctx.setConfig('LINE_CHANNEL_ACCESS_TOKEN', '');
   ctx.setConfig('LINE_CHANNEL_ID', '1234567890');

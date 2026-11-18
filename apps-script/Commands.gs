@@ -24,7 +24,11 @@ function handleText_(ev) {
 
   if (/^(help|วิธีใช้|ช่วยเหลือ|เมนู|คำสั่ง)$/i.test(lower)) return reply(rt, [{ type: 'text', text: helpText_() }]);
   if (/^(วิธีบันทึก|บันทึกเอง)$/.test(t)) return reply(rt, [{ type: 'text', text: manualHelpText_() }]);
-  if (/^(สรุป|สรุปยอด)$/.test(t)) return reply(rt, [{ type: 'text', text: todayText_() + '\n\n' + monthText_() }]);
+  if (/^(สรุป|สรุปยอด)$/.test(t)) {
+    var allTx = readAllTx();
+    return reply(rt, [{ type: 'text', text: todayText_(allTx) + '\n\n' + monthText_(null, allTx) + '\n\n' + totalLine_(allTx) }]);
+  }
+  if (/^(สรุปทั้งหมด|สรุปรวม|ยอดรวม|ยอดสะสม)$/.test(t)) return reply(rt, [{ type: 'text', text: allTimeText_().slice(0, 4900) }]);
   if (t === 'สรุปวันนี้') return reply(rt, [{ type: 'text', text: todayText_() }]);
   if ((m = t.match(/^สรุปเดือน(?:\s*(\d{4})-(\d{1,2}))?$/))) {
     return reply(rt, [{ type: 'text', text: monthText_(m[1] ? new Date(Number(m[1]), Number(m[2]) - 1, 1) : null) }]);
@@ -308,7 +312,7 @@ function helpText_() {
   return '📖 คำสั่งทั้งหมด\n\n' +
     '📷 ส่งรูปสลิป/ใบเสร็จ → อ่านยอดอัตโนมัติ\n' +
     '✍️ -500 ค่าแอด / +1500 ขาย EA → บันทึกเอง\n\n' +
-    '📊 สรุป | สรุปวันนี้ | สรุปเดือน | สรุปเดือน 2026-09\n' +
+    '📊 สรุป | สรุปวันนี้ | สรุปเดือน | สรุปเดือน 2026-09 | สรุปทั้งหมด\n' +
     '📈 แดชบอร์ด\n' +
     '⏳ รออนุมัติ\n' +
     '🏷 หมวด | งบ\n' +

@@ -947,7 +947,11 @@ function handleText_(ev) {
 
   if (/^(help|วิธีใช้|ช่วยเหลือ|เมนู|คำสั่ง)$/i.test(lower)) return reply(rt, [{ type: 'text', text: helpText_() }]);
   if (/^(วิธีบันทึก|บันทึกเอง)$/.test(t)) return reply(rt, [{ type: 'text', text: manualHelpText_() }]);
-  if (/^(สรุป|สรุปยอด)$/.test(t)) return reply(rt, [{ type: 'text', text: todayText_() + '\n\n' + monthText_() }]);
+  if (/^(สรุป|สรุปยอด)$/.test(t)) {
+    var allTx = readAllTx();
+    return reply(rt, [{ type: 'text', text: todayText_(allTx) + '\n\n' + monthText_(null, allTx) + '\n\n' + totalLine_(allTx) }]);
+  }
+  if (/^(สรุปทั้งหมด|สรุปรวม|ยอดรวม|ยอดสะสม)$/.test(t)) return reply(rt, [{ type: 'text', text: allTimeText_().slice(0, 4900) }]);
   if (t === 'สรุปวันนี้') return reply(rt, [{ type: 'text', text: todayText_() }]);
   if ((m = t.match(/^สรุปเดือน(?:\s*(\d{4})-(\d{1,2}))?$/))) {
     return reply(rt, [{ type: 'text', text: monthText_(m[1] ? new Date(Number(m[1]), Number(m[2]) - 1, 1) : null) }]);
@@ -1231,7 +1235,7 @@ function helpText_() {
   return '📖 คำสั่งทั้งหมด\n\n' +
     '📷 ส่งรูปสลิป/ใบเสร็จ → อ่านยอดอัตโนมัติ\n' +
     '✍️ -500 ค่าแอด / +1500 ขาย EA → บันทึกเอง\n\n' +
-    '📊 สรุป | สรุปวันนี้ | สรุปเดือน | สรุปเดือน 2026-09\n' +
+    '📊 สรุป | สรุปวันนี้ | สรุปเดือน | สรุปเดือน 2026-09 | สรุปทั้งหมด\n' +
     '📈 แดชบอร์ด\n' +
     '⏳ รออนุมัติ\n' +
     '🏷 หมวด | งบ\n' +
@@ -1343,6 +1347,54 @@ function monthText_(d, all) {
   return lines.join('\n');
 }
 
+/** บรรทัดยอดสะสมทั้งหมด (ต่อท้ายสรุปวัน/เดือน) */
+function totalLine_(all) {
+  var s = stats_(all, new Date(2000, 0, 1), new Date(2100, 0, 1));
+  return '📊 สะสมทั้งหมด: รับ ' + money(s.inc) + ' | จ่าย ' + money(s.exp) + '\n' +
+    (s.net >= 0 ? '🟢 กำไรสะสม ' : '🔴 ขาดทุนสะสม ') + money(Math.abs(s.net));
+}
+
+/** สรุปผลรวมตั้งแต่เริ่มใช้งาน + แยกรายเดือน + หมวดรายจ่ายสูงสุด */
+function allTimeText_(all) {
+  all = all || readAllTx();
+  var ok = all.filter(function (t) { return t.status === ST_APPROVED && t.date instanceof Date; });
+  if (!ok.length) return 'ยังไม่มีรายการที่อนุมัติแล้ว';
+  var first = ok.reduce(function (a, t) { return t.date < a ? t.date : a; }, ok[0].date);
+  var s = stats_(all, new Date(2000, 0, 1), new Date(2100, 0, 1));
+  var lines = [
+    '📊 สรุปผลรวมทั้งหมด — ' + (getConfig().BUSINESS_NAME || ''),
+    'ตั้งแต่ ' + fmtDate(first, 'dd/MM/yyyy') + ' (' + s.count + ' รายการ)',
+    '',
+    '💰 รับรวม ' + money(s.inc),
+    '💸 จ่ายรวม ' + money(s.exp),
+    (s.net >= 0 ? '🟢 กำไรสุทธิ ' : '🔴 ขาดทุนสุทธิ ') + money(Math.abs(s.net)),
+    '',
+    'รายเดือน (รับ / จ่าย / สุทธิ)'
+  ];
+  var m = monthStart_();
+  var start = monthStart_(first);
+  var rows = [];
+  while (m >= start && rows.length < 12) {
+    var ms = stats_(all, m, nextMonth_(m));
+    if (ms.count) rows.push('• ' + fmtDate(m, 'MM/yyyy') + '  ' + money(ms.inc) + ' / ' + money(ms.exp) + ' / ' + (ms.net >= 0 ? '+' : '') + money(ms.net));
+    m = new Date(m.getFullYear(), m.getMonth() - 1, 1);
+  }
+  lines = lines.concat(rows);
+  var top = catList_(s, EXPENSE).slice(0, 5);
+  if (top.length) {
+    lines.push('', 'รายจ่ายสะสมสูงสุด');
+    top.forEach(function (c) { lines.push('• ' + c.name + ' ' + money(c.value)); });
+  }
+  var inc = catList_(s, INCOME).slice(0, 3);
+  if (inc.length) {
+    lines.push('', 'รายรับสะสม');
+    inc.forEach(function (c) { lines.push('• ' + c.name + ' ' + money(c.value)); });
+  }
+  var p = pendingCount_(all);
+  if (p) lines.push('', '⏳ ยังรออนุมัติ ' + p + ' รายการ (ยังไม่นับในยอด)');
+  return lines.join('\n');
+}
+
 // ---------- งบประมาณ ----------
 
 function spentThisMonth_(category, all) {
@@ -1399,7 +1451,7 @@ function dailyJob() {
   var pending = pendingCount_(all);
   if (!today && !pending) return;
 
-  var text = '🌙 สรุปประจำวัน — ' + (cfg.BUSINESS_NAME || '') + '\n\n' + todayText_(all) + '\n\n' + monthText_(null, all);
+  var text = '🌙 สรุปประจำวัน — ' + (cfg.BUSINESS_NAME || '') + '\n\n' + todayText_(all) + '\n\n' + monthText_(null, all) + '\n\n' + totalLine_(all);
   var warn = budgetText_();
   if (warn.indexOf('🔴') >= 0 || warn.indexOf('🟠') >= 0) text += '\n\n' + warn;
   var url = dashboardUrl_();
