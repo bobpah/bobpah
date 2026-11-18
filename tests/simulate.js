@@ -69,6 +69,7 @@ const props = {};
 const cache = {};
 
 const pad = (n) => String(n).padStart(2, '0');
+const NOW = new Date();
 const ctx = {
   console,
   SpreadsheetApp: { getActiveSpreadsheet: () => ss, create: () => { const s = makeSpreadsheet(); s.insertSheet('Sheet1'); return s; }, getUi: () => { throw new Error('no ui'); } },
@@ -185,7 +186,7 @@ check('standby events are ignored without side effects', () => {
 });
 
 check('slip (expense, facebook ads in USD) → pending card', () => {
-  geminiReply = { is_financial: true, doc_type: 'receipt', amount: 50, currency: 'USD', datetime: '2569-10-15 14:30', receiver_name: 'Meta Platforms', bank: 'Visa', ref: 'FB-123456', memo: 'Facebook ads', direction: 'expense', category: 'ค่าโฆษณา' };
+  geminiReply = { is_financial: true, doc_type: 'receipt', amount: 50, currency: 'USD', datetime: `${NOW.getFullYear() + 543}-${pad(NOW.getMonth() + 1)}-01 14:30`, receiver_name: 'Meta Platforms', bank: 'Visa', ref: 'FB-123456', memo: 'Facebook ads', direction: 'expense', category: 'ค่าโฆษณา' };
   const m = image('Ustaff');
   assert.match(txt([m[0]]), /กำลังอ่านยอด/);
   assert.ok(m.some((x) => x.type === 'flex'));
@@ -194,7 +195,7 @@ check('slip (expense, facebook ads in USD) → pending card', () => {
   assert.strictEqual(t.category, 'ค่าโฆษณา');
   assert.strictEqual(t.thb, 50 * 33);
   assert.strictEqual(t.status, 'รออนุมัติ');
-  assert.strictEqual(t.date.getFullYear(), 2026);
+  assert.strictEqual(t.date.getFullYear(), NOW.getFullYear());
   assert.strictEqual(t.by, 'น้องแอด');
 });
 
@@ -206,7 +207,8 @@ check('slip income detected by own account keyword', () => {
   assert.strictEqual(t.category, 'ขาย EA/License');
 });
 
-check('duplicate slip warned', () => {
+check('same amount+time but different ref → warned (not blocked)', () => {
+  geminiReply = Object.assign({}, geminiReply, { ref: 'OTHER-REF-0001' });
   const m = image('Ustaff');
   assert.match(JSON.stringify(m), /สลิปซ้ำกับ T0002/);
 });
@@ -362,6 +364,15 @@ check('bad api key (400) does not retry', () => {
   const m = image('Ustaff');
   assert.strictEqual(geminiModelsCalled.length, 1);
   assert.match(txt(m), /GEMINI_API_KEY/);
+});
+
+check('same slip ref is blocked, not recorded twice', () => {
+  geminiReply = { is_financial: true, doc_type: 'transfer_slip', amount: 1000, currency: 'THB', datetime: '2026-11-18 18:16', sender_name: 'สุวัฒน์', receiver_name: '2c2p(Thailand)', bank: 'Krungthai', ref: 'C20261118632218308117', direction: 'expense', category: 'ค่าโฆษณา' };
+  image('Ustaff');
+  const before = tx().length;
+  const m = image('Ustaff');
+  assert.strictEqual(tx().length, before);
+  assert.match(txt(m), /บันทึกไปแล้วเป็น T\d+/);
 });
 
 check('token issued from channel id/secret and cached', () => {

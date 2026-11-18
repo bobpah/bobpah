@@ -159,6 +159,19 @@ function findDuplicate(tx) {
   return null;
 }
 
+/** หารายการที่เลขอ้างอิงตรงกันเป๊ะ (ยาว ≥ 8 ตัว กันเลขสั้นชนกันข้ามธนาคาร) — ใช้บล็อกสลิปซ้ำ */
+function findRefDuplicate(ref) {
+  ref = String(ref || '').replace(/\s/g, '').toUpperCase();
+  if (ref.length < 8) return null;
+  var all = readAllTx();
+  for (var i = all.length - 1; i >= 0; i--) {
+    var t = all[i];
+    if (t.status === ST_REJECTED) continue;
+    if (String(t.ref).replace(/\s/g, '').toUpperCase() === ref) return t;
+  }
+  return null;
+}
+
 function dupKey_(t) {
   if (!(t.date instanceof Date) || !t.amount) return '';
   return t.type + '|' + t.amount + '|' + Utilities.formatDate(t.date, TZ, 'yyyyMMddHHmm');
@@ -859,6 +872,16 @@ function processSlip_(blob, user, sendResult, inGroup) {
   // ในกลุ่ม: ถ้าไม่ใช่เอกสารการเงิน (รูปทั่วไป) ให้เงียบไว้ ไม่รบกวนแชท
   if (!r || !r.is_financial || !(Number(r.amount) > 0)) {
     if (!inGroup) sendResult([{ type: 'text', text: 'รูปนี้ไม่น่าจะเป็นสลิป/ใบเสร็จ 🤔\nถ้าใช่ ลองพิมพ์บันทึกเอง เช่น  -500 ค่าแอด' }]);
+    return true;
+  }
+
+  // เลขอ้างอิงตรงกับรายการเดิม = สลิปเดียวกัน ไม่สร้างรายการซ้ำ
+  var same = findRefDuplicate(r.ref);
+  if (same) {
+    sendResult([
+      { type: 'text', text: '♻️ สลิปนี้บันทึกไปแล้วเป็น ' + same.id + ' (' + money(same.amount, same.currency) + ', ' + same.status + ')\nไม่สร้างรายการซ้ำครับ' },
+      cardMsg(same)
+    ]);
     return true;
   }
 

@@ -156,6 +156,19 @@ function findDuplicate(tx) {
   return null;
 }
 
+/** หารายการที่เลขอ้างอิงตรงกันเป๊ะ (ยาว ≥ 8 ตัว กันเลขสั้นชนกันข้ามธนาคาร) — ใช้บล็อกสลิปซ้ำ */
+function findRefDuplicate(ref) {
+  ref = String(ref || '').replace(/\s/g, '').toUpperCase();
+  if (ref.length < 8) return null;
+  var all = readAllTx();
+  for (var i = all.length - 1; i >= 0; i--) {
+    var t = all[i];
+    if (t.status === ST_REJECTED) continue;
+    if (String(t.ref).replace(/\s/g, '').toUpperCase() === ref) return t;
+  }
+  return null;
+}
+
 function dupKey_(t) {
   if (!(t.date instanceof Date) || !t.amount) return '';
   return t.type + '|' + t.amount + '|' + Utilities.formatDate(t.date, TZ, 'yyyyMMddHHmm');

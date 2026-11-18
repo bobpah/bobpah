@@ -230,6 +230,16 @@ function processSlip_(blob, user, sendResult, inGroup) {
     return true;
   }
 
+  // เลขอ้างอิงตรงกับรายการเดิม = สลิปเดียวกัน ไม่สร้างรายการซ้ำ
+  var same = findRefDuplicate(r.ref);
+  if (same) {
+    sendResult([
+      { type: 'text', text: '♻️ สลิปนี้บันทึกไปแล้วเป็น ' + same.id + ' (' + money(same.amount, same.currency) + ', ' + same.status + ')\nไม่สร้างรายการซ้ำครับ' },
+      cardMsg(same)
+    ]);
+    return true;
+  }
+
   var type = decideType_(r);
   var cat = findCategory(r.category, type);
   var note = [r.memo, r.doc_type === 'receipt' || r.doc_type === 'invoice' ? r.receiver_name : ''].filter(String).join(' / ');
